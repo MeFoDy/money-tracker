@@ -78,7 +78,9 @@ const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_tx_pending ON transactions(is_pending);
   CREATE INDEX IF NOT EXISTS idx_tx_hash ON transactions(tx_hash);
   CREATE INDEX IF NOT EXISTS idx_pending_hash ON pending_transactions(tx_hash);
-  `
+  `,
+  // version 2 — удаление авто-категоризации
+  `DROP TABLE IF EXISTS category_rules;`
 ];
 
 let dbInstance = null;

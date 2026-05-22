@@ -8,17 +8,21 @@ document.addEventListener('alpine:init', () => {
     transactions: { rows: [], total: 0, limit: 50, offset: 0 },
     categories: [],
     categoryMap: {},
-    rules: [],
     accounts: [],
     accountMap: {},
     filters: { from: '', to: '', accountId: '', categoryId: '', search: '' },
     selectedIds: [],
     bulkCategoryId: '',
     newCategoryName: '',
-    newCategoryColor: '#0d6efd',
-    newRuleCategoryId: '',
-    newRulePattern: '',
-    newRulePriority: 0,
+    newCategoryColor: '#ef4444',
+    categoryColors: [
+      { name: 'Красный', value: '#ef4444' },
+      { name: 'Оранжевый', value: '#f97316' },
+      { name: 'Зелёный', value: '#22c55e' },
+      { name: 'Голубой', value: '#06b6d4' },
+      { name: 'Синий', value: '#3b82f6' },
+      { name: 'Фиолетовый', value: '#8b5cf6' }
+    ],
     uploadResult: null,
     chartInstances: {},
 
@@ -140,8 +144,17 @@ document.addEventListener('alpine:init', () => {
     async loadCategories() {
       const data = await this.api('/categories');
       this.categories = data.categories;
-      this.rules = data.rules;
       this.categoryMap = Object.fromEntries(this.categories.map(c => [c.id, c]));
+    },
+
+    async updateCategoryColor(id, color) {
+      const cat = this.categoryMap[id];
+      if (!cat || cat.color === color) return;
+      await this.api('/categories/' + id, {
+        method: 'PUT',
+        body: JSON.stringify({ name: cat.name, color })
+      });
+      await this.loadCategories();
     },
 
     async loadAccounts() {
@@ -162,20 +175,6 @@ document.addEventListener('alpine:init', () => {
     async deleteCategory(id) {
       if (!confirm('Удалить категорию?')) return;
       await this.api('/categories/' + id, { method: 'DELETE' });
-      await this.loadCategories();
-    },
-
-    async addRule() {
-      if (!this.newRuleCategoryId || !this.newRulePattern.trim()) return;
-      await this.api('/categories/rules', {
-        method: 'POST',
-        body: JSON.stringify({
-          categoryId: Number(this.newRuleCategoryId),
-          pattern: this.newRulePattern.trim(),
-          priority: Number(this.newRulePriority) || 0
-        })
-      });
-      this.newRulePattern = '';
       await this.loadCategories();
     },
 

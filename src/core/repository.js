@@ -43,16 +43,6 @@ export function deleteCategory(id) {
   getDb().prepare('DELETE FROM categories WHERE id = ?').run(id);
 }
 
-/* ---------- Category Rules ---------- */
-export function createRule({ categoryId, pattern, priority = 0 }) {
-  const stmt = getDb().prepare('INSERT INTO category_rules (category_id, pattern, priority) VALUES (?, ?, ?) RETURNING *');
-  return stmt.get(categoryId, pattern, priority);
-}
-
-export function getRules() {
-  return getDb().prepare('SELECT * FROM category_rules ORDER BY priority DESC, created_at DESC').all();
-}
-
 /* ---------- Transactions ---------- */
 export function createTransaction({ accountId, categoryId, txDate, description, amount, amountByn, currency, txType, txHash, bankCategory, isPending = 0 }) {
   const stmt = getDb().prepare(`

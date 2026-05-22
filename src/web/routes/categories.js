@@ -1,10 +1,9 @@
-import { getAllCategories, createCategory, updateCategory, deleteCategory, getCategoryByName, getRules, createRule } from '../../core/repository.js';
+import { getAllCategories, createCategory, updateCategory, deleteCategory, getCategoryByName } from '../../core/repository.js';
 
 export default async function categoryRoutes(app) {
   app.get('/', async () => {
     const categories = getAllCategories();
-    const rules = getRules();
-    return { categories, rules };
+    return { categories };
   });
 
   app.post('/', async (request, reply) => {
@@ -37,14 +36,5 @@ export default async function categoryRoutes(app) {
     const id = Number(request.params.id);
     deleteCategory(id);
     return { deleted: true };
-  });
-
-  app.post('/rules', async (request, reply) => {
-    const { categoryId, pattern, priority = 0 } = request.body || {};
-    if (!categoryId || !pattern?.trim()) {
-      return reply.code(400).send({ error: 'categoryId and pattern are required' });
-    }
-    const rule = createRule({ categoryId: Number(categoryId), pattern: pattern.trim(), priority: Number(priority) });
-    return rule;
   });
 }

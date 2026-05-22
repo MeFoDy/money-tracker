@@ -158,49 +158,46 @@
       <template x-if="page === 'categories'">
         <div>
           <h3 class="page-title">Категории</h3>
-          <div class="grid form-row">
+          <div class="category-form">
             <input type="text" x-model="newCategoryName" placeholder="Название новой категории">
-            <input type="color" x-model="newCategoryColor">
+            <div class="color-palette">
+              <template x-for="c in categoryColors" :key="c.value">
+                <button
+                  type="button"
+                  class="color-swatch"
+                  :class="{ 'active': newCategoryColor === c.value }"
+                  :style="'background-color: ' + c.value"
+                  :title="c.name"
+                  @click="newCategoryColor = c.value"
+                ></button>
+              </template>
+            </div>
             <button @click="addCategory()">Добавить</button>
           </div>
-          <figure class="data-table-wrap">
-            <table role="grid" class="data-table">
+          <figure class="data-table-wrap category-table-wrap">
+            <table role="grid" class="data-table category-table">
               <thead>
-                <tr><th>Название</th><th>Цвет</th><th></th></tr>
+                <tr><th>Цвет</th><th>Название</th><th></th></tr>
               </thead>
               <tbody>
                 <template x-for="cat in categories" :key="cat.id">
                   <tr>
+                    <td>
+                      <div class="color-palette">
+                        <template x-for="c in categoryColors" :key="c.value">
+                          <button
+                            type="button"
+                            class="color-swatch small"
+                            :class="{ 'active': (cat.color || '#cccccc') === c.value }"
+                            :style="'background-color: ' + c.value"
+                            :title="c.name"
+                            @click="updateCategoryColor(cat.id, c.value)"
+                          ></button>
+                        </template>
+                      </div>
+                    </td>
                     <td x-text="cat.name"></td>
-                    <td><span class="color-dot" :style="'background:'+(cat.color||'#ccc')"></span></td>
                     <td><button class="secondary outline small" @click="deleteCategory(cat.id)">×</button></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </figure>
-
-          <h4 class="page-title">Правила авто-категоризации</h4>
-          <div class="grid form-row">
-            <select x-model="newRuleCategoryId">
-              <option value="">Категория</option>
-              <template x-for="cat in categories" :key="cat.id">
-                <option :value="cat.id" x-text="cat.name"></option>
-              </template>
-            </select>
-            <input type="text" x-model="newRulePattern" placeholder="Подстрока в описании">
-            <input type="number" x-model="newRulePriority" placeholder="Приоритет">
-            <button @click="addRule()">Добавить правило</button>
-          </div>
-          <figure class="data-table-wrap">
-            <table role="grid" class="data-table">
-              <thead><tr><th>Категория</th><th>Паттерн</th><th>Приоритет</th></tr></thead>
-              <tbody>
-                <template x-for="rule in rules" :key="rule.id">
-                  <tr>
-                    <td x-text="categoryMap[rule.category_id]?.name || '#'+rule.category_id"></td>
-                    <td x-text="rule.pattern"></td>
-                    <td x-text="rule.priority"></td>
                   </tr>
                 </template>
               </tbody>

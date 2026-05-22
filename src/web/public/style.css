@@ -565,6 +565,71 @@ button.small {
   background: var(--text-muted);
 }
 
+/* ---------- Categories Page ---------- */
+.category-form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.category-form input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.category-form button {
+  white-space: nowrap;
+  margin-bottom: 0;
+}
+
+/* Color palette swatches */
+.color-palette {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.5);
+}
+
+.color-swatch.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--text-primary);
+  transform: scale(1.1);
+}
+
+.color-swatch.small {
+  width: 22px;
+  height: 22px;
+}
+
+/* Category table */
+.category-table td:first-child {
+  width: 180px;
+}
+
+.category-table td:last-child {
+  width: 52px;
+  text-align: right;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
   .summary-cards {
