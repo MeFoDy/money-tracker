@@ -1,0 +1,78 @@
+/* Layout helpers */
+.hidden { display: none !important; }
+
+.summary-cards article {
+  text-align: center;
+}
+
+.big {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.income { color: #198754; }
+.expense { color: #dc3545; }
+
+.charts-row .chart-wrap {
+  height: 320px;
+  position: relative;
+}
+
+.filters {
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.filters input,
+.filters select {
+  margin-bottom: 0;
+}
+
+.bulk-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: var(--card-background-color);
+  border-radius: var(--border-radius);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.color-dot {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.dropzone {
+  border: 2px dashed var(--muted-border-color);
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.dropzone:hover {
+  border-color: var(--primary);
+}
+
+table td .income { color: #198754; font-weight: 600; }
+table td .expense { color: #dc3545; font-weight: 600; }
+
+nav a.active {
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+button.small { padding: 0.25rem 0.5rem; font-size: 0.8rem; }

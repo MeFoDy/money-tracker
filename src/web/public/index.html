@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Money Tracker</title>
+  <base href="./">
+  <link rel="stylesheet" href="./vendor/pico.css">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+  <script defer src="./vendor/chart.js"></script>
+  <script defer src="./vendor/alpinejs.js"></script>
+</head>
+<body>
+  <div x-data="app()" x-init="initApp()">
+    <nav class="container-fluid">
+      <ul>
+        <li><strong>Money Tracker</strong></li>
+      </ul>
+      <ul>
+        <li><a href="#" @click.prevent="page='dashboard'" :class="{ 'active': page==='dashboard' }">Dashboard</a></li>
+        <li><a href="#" @click.prevent="page='transactions'" :class="{ 'active': page==='transactions' }">Транзакции</a></li>
+        <li><a href="#" @click.prevent="page='categories'" :class="{ 'active': page==='categories' }">Категории</a></li>
+        <li><a href="#" @click.prevent="page='upload'" :class="{ 'active': page==='upload' }">Загрузка</a></li>
+      </ul>
+    </nav>
+
+    <main class="container">
+      <!-- Dashboard -->
+      <template x-if="page === 'dashboard'">
+        <div>
+          <div class="grid summary-cards">
+            <article>
+              <header><h4>Операций</h4></header>
+              <p class="big" x-text="formatNum(summary.totalTx)"></p>
+            </article>
+            <article>
+              <header><h4>Доходы</h4></header>
+              <p class="big income" x-text="formatMoney(summary.totalIncome)"></p>
+            </article>
+            <article>
+              <header><h4>Расходы</h4></header>
+              <p class="big expense" x-text="formatMoney(summary.totalExpense)"></p>
+            </article>
+            <article>
+              <header><h4>Без категории</h4></header>
+              <p class="big" x-text="summary.uncategorized"></p>
+            </article>
+          </div>
+
+          <div class="grid charts-row">
+            <article>
+              <header><h5>Расходы по категориям</h5></header>
+              <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
+            </article>
+            <article>
+              <header><h5>Баланс во времени</h5></header>
+              <div class="chart-wrap"><canvas id="chart-balance"></canvas></div>
+            </article>
+          </div>
+        </div>
+      </template>
+
+      <!-- Transactions -->
+      <template x-if="page === 'transactions'">
+        <div>
+          <h3>Транзакции</h3>
+          <div class="filters grid">
+            <input type="date" x-model="filters.from" @change="loadTransactions()" placeholder="От">
+            <input type="date" x-model="filters.to" @change="loadTransactions()" placeholder="До">
+            <select x-model="filters.accountId" @change="loadTransactions()">
+              <option value="">Все счета</option>
+              <template x-for="acc in accounts" :key="acc.id">
+                <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+              </template>
+            </select>
+            <select x-model="filters.categoryId" @change="loadTransactions()">
+              <option value="">Все категории</option>
+              <option value="null">Без категории</option>
+              <template x-for="cat in categories" :key="cat.id">
+                <option :value="cat.id" x-text="cat.name"></option>
+              </template>
+            </select>
+            <input type="text" x-model.debounce.300ms="filters.search" @change="loadTransactions()" placeholder="Поиск по описанию...">
+            <button class="secondary outline" @click="resetFilters()">Сбросить</button>
+          </div>
+
+          <div class="bulk-bar" x-show="selectedIds.length > 0">
+            <span x-text="selectedIds.length + ' выбрано'"></span>
+            <select x-model="bulkCategoryId">
+              <option value="">Выберите категорию</option>
+              <template x-for="cat in categories" :key="cat.id">
+                <option :value="cat.id" x-text="cat.name"></option>
+              </template>
+            </select>
+            <button @click="applyBulkCategory()" :disabled="!bulkCategoryId">Назначить</button>
+          </div>
+
+          <figure>
+            <table role="grid">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" @change="toggleSelectAll($event.target.checked)"></th>
+                  <th>Дата</th>
+                  <th>Описание</th>
+                  <th>Сумма</th>
+                  <th>Валюта</th>
+                  <th>Счет</th>
+                  <th>Категория</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="tx in transactions.rows" :key="tx.id">
+                  <tr>
+                    <td><input type="checkbox" :value="tx.id" x-model="selectedIds"></td>
+                    <td x-text="tx.tx_date?.slice(0,10)"></td>
+                    <td x-text="tx.description"></td>
+                    <td :class="tx.tx_type" x-text="formatMoney(tx.amount)"></td>
+                    <td x-text="tx.currency"></td>
+                    <td x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"></td>
+                    <td>
+                      <select x-model="tx.category_id" @change="updateTxCategory(tx.id, $event.target.value)">
+                        <option value="">—</option>
+                        <template x-for="cat in categories" :key="cat.id">
+                          <option :value="cat.id" x-text="cat.name" :selected="cat.id == tx.category_id"></option>
+                        </template>
+                      </select>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </figure>
+
+          <div class="pagination">
+            <button class="outline" @click="prevPage()" :disabled="transactions.offset <= 0">← Назад</button>
+            <span x-text="(transactions.offset||0)+1 + ' — ' + Math.min((transactions.offset||0)+(transactions.limit||50), transactions.total) + ' из ' + transactions.total"></span>
+            <button class="outline" @click="nextPage()" :disabled="(transactions.offset||0)+(transactions.limit||50) >= transactions.total">Вперед →</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- Categories -->
+      <template x-if="page === 'categories'">
+        <div>
+          <h3>Категории</h3>
+          <div class="grid">
+            <input type="text" x-model="newCategoryName" placeholder="Название новой категории">
+            <input type="color" x-model="newCategoryColor">
+            <button @click="addCategory()">Добавить</button>
+          </div>
+          <figure>
+            <table role="grid">
+              <thead>
+                <tr><th>Название</th><th>Цвет</th><th></th></tr>
+              </thead>
+              <tbody>
+                <template x-for="cat in categories" :key="cat.id">
+                  <tr>
+                    <td x-text="cat.name"></td>
+                    <td><span class="color-dot" :style="'background:'+(cat.color||'#ccc')"></span></td>
+                    <td><button class="secondary outline small" @click="deleteCategory(cat.id)">×</button></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </figure>
+
+          <h4>Правила авто-категоризации</h4>
+          <div class="grid">
+            <select x-model="newRuleCategoryId">
+              <option value="">Категория</option>
+              <template x-for="cat in categories" :key="cat.id">
+                <option :value="cat.id" x-text="cat.name"></option>
+              </template>
+            </select>
+            <input type="text" x-model="newRulePattern" placeholder="Подстрока в описании">
+            <input type="number" x-model="newRulePriority" placeholder="Приоритет">
+            <button @click="addRule()">Добавить правило</button>
+          </div>
+          <figure>
+            <table role="grid">
+              <thead><tr><th>Категория</th><th>Паттерн</th><th>Приоритет</th></tr></thead>
+              <tbody>
+                <template x-for="rule in rules" :key="rule.id">
+                  <tr>
+                    <td x-text="categoryMap[rule.category_id]?.name || '#'+rule.category_id"></td>
+                    <td x-text="rule.pattern"></td>
+                    <td x-text="rule.priority"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </figure>
+        </div>
+      </template>
+
+      <!-- Upload -->
+      <template x-if="page === 'upload'">
+        <div>
+          <h3>Загрузка выписки</h3>
+          <div class="dropzone" @dragover.prevent @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()">
+            <p>Перетащите CSV-файл сюда или кликните для выбора</p>
+            <input type="file" accept=".csv" x-ref="fileInput" @change="handleFileSelect($event)" class="hidden">
+          </div>
+          <template x-if="uploadResult">
+            <article>
+              <header>Результат импорта</header>
+              <p>Импортировано: <strong x-text="uploadResult.imported"></strong></p>
+              <p>Пропущено дублей: <strong x-text="uploadResult.duplicatesSkipped"></strong></p>
+              <p>Обновлено из ожидания: <strong x-text="uploadResult.updatedFromPending"></strong></p>
+            </article>
+          </template>
+        </div>
+      </template>
+    </main>
+  </div>
+</body>
+</html>
