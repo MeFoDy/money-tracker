@@ -4,6 +4,7 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => ({
     page: 'dashboard',
     summary: { totalTx: 0, totalIncome: 0, totalExpense: 0, uncategorized: 0 },
+    periodStats: { income: 0, expense: 0 },
     transactions: { rows: [], total: 0, limit: 50, offset: 0 },
     categories: [],
     categoryMap: {},
@@ -24,6 +25,13 @@ document.addEventListener('alpine:init', () => {
     async initApp() {
       await this.loadAccounts();
       await this.loadCategories();
+      this.$watch('page', async (value) => {
+        if (value === 'dashboard') {
+          await this.loadDashboard();
+        } else if (value === 'transactions') {
+          await this.loadTransactions();
+        }
+      });
       if (this.page === 'dashboard') await this.loadDashboard();
       if (this.page === 'transactions') await this.loadTransactions();
     },
@@ -45,6 +53,7 @@ document.addEventListener('alpine:init', () => {
       this.summary = await this.api('/analytics/summary');
       const spending = await this.api('/analytics/spending-by-category?type=expense');
       const balance = await this.api('/analytics/balance-over-time');
+      await this.$nextTick();
       this.renderCharts(spending, balance);
     },
 
@@ -69,9 +78,15 @@ document.addEventListener('alpine:init', () => {
     },
 
     async loadTransactions() {
+      // default to last 3 months if no date range set
+      const now = new Date();
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const from = this.filters.from || threeMonthsAgo.toISOString().slice(0, 10);
+      const to = this.filters.to || now.toISOString().slice(0, 10);
+
       const q = new URLSearchParams();
-      if (this.filters.from) q.set('from', this.filters.from);
-      if (this.filters.to) q.set('to', this.filters.to);
+      q.set('from', from);
+      q.set('to', to);
       if (this.filters.accountId) q.set('accountId', this.filters.accountId);
       if (this.filters.categoryId !== '') q.set('categoryId', this.filters.categoryId);
       if (this.filters.search) q.set('search', this.filters.search);
@@ -79,6 +94,7 @@ document.addEventListener('alpine:init', () => {
       q.set('offset', this.transactions.offset);
       this.transactions = await this.api('/transactions?' + q.toString());
       this.selectedIds = [];
+      this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`);
     },
 
     resetFilters() {

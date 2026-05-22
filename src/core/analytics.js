@@ -116,3 +116,18 @@ export function getSummaryStats() {
   const uncategorized = getUncategorizedCount();
   return { totalTx, totalIncome, totalExpense, uncategorized };
 }
+
+/**
+ * @returns {{income: number, expense: number}}
+ */
+export function getPeriodSummary({ from, to, accountId } = {}) {
+  const { where, params } = buildWhere({ from, to, accountId });
+  const sql = `
+    SELECT
+      SUM(CASE WHEN t.tx_type = 'income' THEN COALESCE(t.amount_byn, t.amount) ELSE 0 END) AS income,
+      SUM(CASE WHEN t.tx_type = 'expense' THEN COALESCE(t.amount_byn, ABS(t.amount)) ELSE 0 END) AS expense
+    FROM transactions t
+    ${where}
+  `;
+  return getDb().prepare(sql).get(...params);
+}

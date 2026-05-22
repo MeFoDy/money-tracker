@@ -4,10 +4,16 @@ import {
   getTopCounterparties,
   getBalanceOverTime,
   getUncategorizedCount,
-  getSummaryStats
+  getSummaryStats,
+  getPeriodSummary
 } from '../../core/analytics.js';
 
 export default async function analyticsRoutes(app) {
+  app.get('/period-summary', async (request) => {
+    const { from, to, accountId } = request.query;
+    return getPeriodSummary({ from, to, accountId });
+  });
+
   app.get('/spending-by-category', async (request) => {
     const { from, to, accountId, type } = request.query;
     return getSpendingByCategory({ from, to, accountId, type });

@@ -3,7 +3,7 @@ node_modules/
 package-lock.json
 
 # Data (runtime SQLite DB)
-data/finance.db
+data/
 
 # Environment
 .env

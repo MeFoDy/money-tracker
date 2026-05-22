@@ -37,6 +37,7 @@
 | Компонент | Выбор |
 |-----------|-------|
 | Runtime | Node.js 20+ (ESM) |
+| Пакетный менеджер | pnpm |
 | Сервер | Fastify 4.x |
 | База данных | SQLite (`better-sqlite3`) |
 | SPA фреймворк | Alpine.js 3.x |
@@ -98,15 +99,15 @@ money-tracker/
 
 ## Установка
 
+Требования: Node.js >= 20, pnpm.
+
 ```bash
-# Клонирование
-npm install
+# Установка зависимостей
+pnpm install
 
 # Копирование фронтенд-зависимостей в public/vendor
-npm run copy-frontend-deps
+pnpm run copy-frontend-deps
 ```
-
-Требования: Node.js >= 20.
 
 ---
 
@@ -115,7 +116,7 @@ npm run copy-frontend-deps
 ### Веб-сервер
 
 ```bash
-npm run web
+pnpm run web
 ```
 
 Сервер слушает `0.0.0.0:3000` (или порт из `PORT`).
@@ -126,7 +127,7 @@ npm run web
 ### CLI
 
 ```bash
-npm run cli -- <команда> [опции]
+pnpm run cli -- <команда> [опции]
 # или напрямую
 node src/cli/cli.js <команда> [опции]
 ```
@@ -217,7 +218,7 @@ SQLite с WAL-режимом. Схема включает:
 ## Тестирование
 
 ```bash
-npm test
+pnpm test
 ```
 
 Запускает встроенный test runner Node.js (`node --test`) для всех `*.test.js`:
@@ -239,5 +240,5 @@ npm test
 - **Переменные окружения**:
   - `PORT` — порт веб-сервера (по умолчанию 3000);
   - `DB_PATH` — путь к SQLite (по умолчанию `data/finance.db`).
-- **Добавление фронтенд-зависимостей**: если нужен новый npm-пакет для фронта, добавь его в `dependencies`, затем обнови `scripts/copy-frontend-deps.js` и запусти `npm run copy-frontend-deps`.
+- **Добавление фронтенд-зависимостей**: если нужен новый npm-пакет для фронта, добавь его в `dependencies`, затем обнови `scripts/copy-frontend-deps.js` и запусти `pnpm run copy-frontend-deps`.
 - **Расширение CLI**: команды добавляются в `src/cli/cli.js` через `commander`. Успешный вывод — всегда JSON в stdout, ошибки — JSON в stderr + `process.exit(1)`.
