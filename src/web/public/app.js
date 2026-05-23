@@ -1,40 +1,48 @@
 import { renderDoughnut, renderIncomeExpenseLine, renderPeriodComparisonBar } from './charts.js';
-
-let chartInstances = {};
+import { formatDate as fmtDate } from './utils.js';
 
 document.addEventListener('alpine:init', () => {
-  Alpine.data('app', () => ({
-    page: 'dashboard',
-    summary: { totalTx: 0, totalIncome: 0, totalExpense: 0, uncategorized: 0 },
-    kpi: { balance: 0, income: 0, incomeDelta: 0, incomeDeltaPercent: 0, expense: 0, expenseDelta: 0, expenseDeltaPercent: 0, topCategory: { name: '—', total: 0 }, transactionCount: 0 },
-    periodStats: { income: 0, expense: 0 },
-    transactions: { rows: [], total: 0, limit: 50, offset: 0 },
-    categories: [],
-    categoryMap: {},
-    accounts: [],
-    accountMap: {},
-    filters: { from: '', to: '', accountId: '', categoryId: '', search: '' },
-    dashFilters: { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' },
-    groupBy: 'month',
-    selectedIds: [],
-    bulkCategoryId: '',
-    newCategoryName: '',
-    newCategoryColor: '#ef4444',
-    categoryColors: [
-      { name: 'Красный', value: '#ef4444' },
-      { name: 'Оранжевый', value: '#f97316' },
-      { name: 'Зелёный', value: '#22c55e' },
-      { name: 'Голубой', value: '#06b6d4' },
-      { name: 'Синий', value: '#3b82f6' },
-      { name: 'Фиолетовый', value: '#8b5cf6' }
-    ],
-    uploadResult: null,
-    drawer: { open: false, title: '', transactions: [] },
-    lineHidden: { income: false, expense: false, balance: false },
-    categoryDropdownOpen: false,
-    drawerSort: { column: 'tx_date', direction: 'desc' },
-    drawerSearch: '',
-    heatmapMode: 'expense',
+  Alpine.data('app', () => {
+    // Chart.js instances must NOT be stored in Alpine reactive state
+    // because Chart.js objects contain cyclic references and complex
+    // structures that cause infinite recursion when wrapped in Proxy.
+    let chartInstances = {};
+
+    return {
+      page: 'dashboard',
+      summary: { totalTx: 0, totalIncome: 0, totalExpense: 0, uncategorized: 0 },
+      kpi: { balance: 0, income: 0, incomeDelta: 0, incomeDeltaPercent: 0, expense: 0, expenseDelta: 0, expenseDeltaPercent: 0, topCategory: { name: '—', total: 0 }, transactionCount: 0 },
+      periodStats: { income: 0, expense: 0 },
+      transactions: { rows: [], total: 0, limit: 50, offset: 0 },
+      categories: [],
+      categoryMap: {},
+      accounts: [],
+      accountMap: {},
+      filters: { from: '', to: '', accountId: '', categoryId: '', search: '' },
+      dashFilters: { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' },
+      groupBy: 'month',
+      selectedIds: [],
+      bulkCategoryId: '',
+      newCategoryName: '',
+      newCategoryColor: '#ef4444',
+      categoryColors: [
+        { name: 'Красный', value: '#ef4444' },
+        { name: 'Оранжевый', value: '#f97316' },
+        { name: 'Зелёный', value: '#22c55e' },
+        { name: 'Голубой', value: '#06b6d4' },
+        { name: 'Синий', value: '#3b82f6' },
+        { name: 'Фиолетовый', value: '#8b5cf6' }
+      ],
+      uploadResult: null,
+      drawer: { open: false, title: '', transactions: [] },
+      lineHidden: { income: false, expense: false, balance: false },
+      categoryDropdownOpen: false,
+      drawerSort: { column: 'tx_date', direction: 'desc' },
+      drawerSearch: '',
+      heatmapMode: 'expense',
+      _abortControllers: {},
+      formatDate: fmtDate,
+      isLoading: false,
 
     async initApp() {
       await this.loadAccounts();
@@ -50,11 +58,6 @@ document.addEventListener('alpine:init', () => {
       });
       if (this.page === 'dashboard') await this.loadDashboard();
       if (this.page === 'transactions') await this.loadTransactions();
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.drawer.open) {
-          this.closeDrawer();
-        }
-      });
     },
 
     async api(path, opts = {}) {
@@ -161,15 +164,25 @@ document.addEventListener('alpine:init', () => {
     },
 
     async loadDashboard() {
+      this._abortControllers.dashboard?.abort();
+      const controller = new AbortController();
+      this._abortControllers.dashboard = controller;
+      this.isLoading = true;
       const q = this.buildDashQuery();
-      this.kpi = await this.api('/analytics/kpi?' + q.toString());
-      const ie = await this.api(`/analytics/income-expense-over-time?groupBy=${this.groupBy}&` + q.toString());
-      const spending = await this.api('/analytics/spending-by-category?type=expense&' + q.toString());
-      const comparison = await this.api('/analytics/period-comparison?type=expense&' + q.toString());
-      const heatmap = await this.api('/analytics/heatmap?mode=' + this.heatmapMode + '&' + q.toString());
-      await this.$nextTick();
-      this.renderDashboardCharts(ie, spending, comparison, heatmap);
-      this.syncDashFiltersToUrl();
+      try {
+        this.kpi = await this.api('/analytics/kpi?' + q.toString(), { signal: controller.signal });
+        const ie = await this.api(`/analytics/income-expense-over-time?groupBy=${this.groupBy}&` + q.toString(), { signal: controller.signal });
+        const spending = await this.api('/analytics/spending-by-category?type=expense&' + q.toString(), { signal: controller.signal });
+        const comparison = await this.api('/analytics/period-comparison?type=expense&' + q.toString(), { signal: controller.signal });
+        const heatmap = await this.api('/analytics/heatmap?mode=' + this.heatmapMode + '&' + q.toString(), { signal: controller.signal });
+        await this.$nextTick();
+        this.renderDashboardCharts(ie, spending, comparison, heatmap);
+        this.syncDashFiltersToUrl();
+      } catch (error) {
+        if (error.name !== 'AbortError') throw error;
+      } finally {
+        this.isLoading = false;
+      }
     },
 
     renderDashboardCharts(ie, spending, comparison, heatmap) {
@@ -200,7 +213,7 @@ document.addEventListener('alpine:init', () => {
     renderHeatmap(data) {
       const container = document.querySelector('#heatmap-grid');
       if (!container) return;
-      container.innerHTML = '';
+      const frag = document.createDocumentFragment();
       const maxValue = Math.max(...data.map(d => d.value), 1);
       const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
       const headerRow = document.createElement('div');
@@ -211,7 +224,7 @@ document.addEventListener('alpine:init', () => {
         cell.textContent = d;
         headerRow.append(cell);
       }
-      container.append(headerRow);
+      frag.append(headerRow);
       const weeks = {};
       for (const item of data) {
         if (!weeks[item.week]) weeks[item.week] = {};
@@ -234,12 +247,12 @@ document.addEventListener('alpine:init', () => {
           if (item) {
             const intensity = item.value / maxValue;
             cell.style.backgroundColor = `rgba(${rgb}, ${0.15 + intensity * 0.7})`;
-            cell.title = `${item.date}: ${this.formatMoney(item.value)}`;
+            cell.title = `${fmtDate(item.date)}: ${this.formatMoney(item.value)}`;
             cell.addEventListener('click', () => this.openDrawerForDay(item.date));
           }
           row.append(cell);
         }
-        container.append(row);
+        frag.append(row);
       }
     },
 
@@ -292,7 +305,7 @@ document.addEventListener('alpine:init', () => {
         const firstMonday = new Date(Number(year), 0, 1 + daysToMonday);
         if (week === 0) {
           const from = `${year}-01-01`;
-          const to = new Date(firstMonday.getTime() - 86400000).toISOString().slice(0, 10);
+          const to = new Date(firstMonday.getTime() - 86_400_000).toISOString().slice(0, 10);
           return { from, to };
         }
         const monday = new Date(firstMonday);
@@ -315,7 +328,8 @@ document.addEventListener('alpine:init', () => {
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
-      this.drawer = { open: true, title: `Транзакции за ${item.period}`, transactions: data.rows };
+      const periodLabel = this.groupBy === 'day' ? fmtDate(item.period) : item.period;
+      this.drawer = { open: true, title: `Транзакции за ${periodLabel}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
       this.drawerSearch = '';
     },
@@ -341,7 +355,7 @@ document.addEventListener('alpine:init', () => {
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
-      this.drawer = { open: true, title: `Транзакции за ${date}`, transactions: data.rows };
+      this.drawer = { open: true, title: `Транзакции за ${fmtDate(date)}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
       this.drawerSearch = '';
     },
@@ -393,12 +407,18 @@ document.addEventListener('alpine:init', () => {
 
     destroyCharts() {
       Object.values(chartInstances).forEach(c => {
-        if (c && typeof c.destroy === 'function') c.destroy();
+        if (c && typeof c.destroy === 'function') {
+          c.stop?.();
+          c.destroy();
+        }
       });
       chartInstances = {};
     },
 
     async loadTransactions() {
+      this._abortControllers.transactions?.abort();
+      const controller = new AbortController();
+      this._abortControllers.transactions = controller;
       // default to last 3 months if no date range set
       const now = new Date();
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
@@ -413,9 +433,13 @@ document.addEventListener('alpine:init', () => {
       if (this.filters.search) q.set('search', this.filters.search);
       q.set('limit', this.transactions.limit);
       q.set('offset', this.transactions.offset);
-      this.transactions = await this.api('/transactions?' + q.toString());
-      this.selectedIds = [];
-      this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`);
+      try {
+        this.transactions = await this.api('/transactions?' + q.toString(), { signal: controller.signal });
+        this.selectedIds = [];
+        this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`, { signal: controller.signal });
+      } catch (error) {
+        if (error.name !== 'AbortError') throw error;
+      }
     },
 
     resetFilters() {
@@ -440,22 +464,40 @@ document.addEventListener('alpine:init', () => {
 
     async applyBulkCategory() {
       if (!this.bulkCategoryId) return;
-      await this.api('/transactions/bulk', {
-        method: 'PATCH',
-        body: JSON.stringify({ ids: this.selectedIds, categoryId: Number(this.bulkCategoryId) })
-      });
+      const categoryId = Number(this.bulkCategoryId);
+      const ids = [...this.selectedIds];
+      // Optimistic update
+      for (const tx of this.transactions.rows) {
+        if (ids.includes(tx.id)) tx.category_id = categoryId;
+      }
       this.selectedIds = [];
       this.bulkCategoryId = '';
-      await this.loadTransactions();
+      try {
+        await this.api('/transactions/bulk', {
+          method: 'PATCH',
+          body: JSON.stringify({ ids, categoryId })
+        });
+      } catch (error) {
+        // Rollback on error
+        await this.loadTransactions();
+        throw error;
+      }
     },
 
     async updateTxCategory(id, val) {
       const categoryId = val === '' ? null : Number(val);
-      await this.api('/transactions/bulk', {
-        method: 'PATCH',
-        body: JSON.stringify({ ids: [Number(id)], categoryId })
-      });
-      await this.loadTransactions();
+      const tx = this.transactions.rows.find(t => t.id === id);
+      const oldCategoryId = tx?.category_id;
+      if (tx) tx.category_id = categoryId;
+      try {
+        await this.api('/transactions/bulk', {
+          method: 'PATCH',
+          body: JSON.stringify({ ids: [Number(id)], categoryId })
+        });
+      } catch (error) {
+        if (tx) tx.category_id = oldCategoryId;
+        throw error;
+      }
     },
 
     async loadCategories() {
@@ -514,14 +556,16 @@ document.addEventListener('alpine:init', () => {
       if (this.page === 'dashboard') await this.loadDashboard();
     },
 
-    formatMoney(n) {
-      return new Intl.NumberFormat('ru-BY', { style: 'currency', currency: 'BYN' }).format(Number(n || 0));
+    formatMoney(n, currency = 'BYN') {
+      return new Intl.NumberFormat('ru-BY', { style: 'currency', currency }).format(Number(n || 0));
     },
 
     formatNum(n) {
       return new Intl.NumberFormat('ru-BY').format(Number(n || 0));
     }
-  }));
+  };
+
+  });
 });
 
 function randomColor() {

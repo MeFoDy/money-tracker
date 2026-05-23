@@ -934,7 +934,7 @@ button.small {
 }
 
 .drawer-date-cell {
-  min-width: 14ch;
+  min-width: 10ch;
 }
 
 .category-badge {
@@ -1079,6 +1079,33 @@ button.small {
   }
 }
 
+/* ---------- Loading Overlay ---------- */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 13, 18, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  pointer-events: none;
+}
+
+.spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 212, 170, 0.2);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ---------- Reduced Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1092,5 +1119,10 @@ button.small {
   article:hover,
   .card-glow:hover {
     transform: none !important;
+  }
+  .spinner {
+    animation: none;
+    border-top-color: var(--accent-primary);
+    opacity: 0.6;
   }
 }

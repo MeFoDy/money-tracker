@@ -31,4 +31,19 @@ describe('API', () => {
       teardownTestDb(ctx);
     }
   });
+
+  test('index page loads with required frontend assets', async () => {
+    const ctx = setupTestDb();
+    const app = await buildApp();
+    try {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      assert.equal(res.statusCode, 200);
+      assert.ok(res.payload.includes('chart.js'));
+      assert.ok(res.payload.includes('app.js'));
+      assert.ok(res.payload.includes('alpinejs.js'));
+    } finally {
+      await app.close();
+      teardownTestDb(ctx);
+    }
+  });
 });

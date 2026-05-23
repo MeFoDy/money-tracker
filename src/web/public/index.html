@@ -5,14 +5,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Money Tracker — личный финансовый дашборд для отслеживания доходов, расходов и анализа транзакций.">
+  <meta property="og:title" content="Money Tracker">
+  <meta property="og:description" content="Личный финансовый дашборд для отслеживания доходов, расходов и анализа транзакций.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E◈%3C/text%3E%3C/svg%3E">
   <title>Money Tracker</title>
-  <base href="./">
-  <link rel="stylesheet" href="./vendor/pico.css">
+  <link rel="stylesheet" href="./vendor/pico.css" integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU" crossorigin="anonymous">
   <link rel="stylesheet" href="./style.css">
-  <script defer src="./vendor/chart.js"></script>
-  <script defer src="./vendor/chartjs-plugin-datalabels.js"></script>
+  <script defer src="./vendor/chart.js" integrity="sha384-hfkuqrKeWFmnTMWN31VWyoe8xgdTADD11kgxmdpx2uyE6j5Az5uZq6u6AKYYmAOw" crossorigin="anonymous"></script>
+  <script defer src="./vendor/chartjs-plugin-datalabels.js" integrity="sha384-y49Zu59jZHJL/PLKgZPv3k2WI9c0Yp3pWB76V8OBVCb0QBKS8l4Ff3YslzHVX76Y" crossorigin="anonymous"></script>
   <script type="module" src="./app.js"></script>
-  <script defer src="./vendor/alpinejs.js"></script>
+  <script defer src="./vendor/alpinejs.js" integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L" crossorigin="anonymous"></script>
 </head>
 
 <body>
@@ -30,6 +34,9 @@
     </nav>
 
     <main class="container">
+      <div class="loading-overlay" x-show="isLoading" x-transition.opacity.duration.200ms>
+        <span class="spinner" aria-label="Загрузка"></span>
+      </div>
       <!-- Dashboard -->
       <template x-if="page === 'dashboard'">
         <div>
@@ -48,10 +55,14 @@
                 </template>
               </select>
               <div class="multi-select-wrap">
-                <button type="button" @click="toggleCategoryDropdown()">
+                <button type="button"
+                  @click="toggleCategoryDropdown()"
+                  :aria-expanded="categoryDropdownOpen"
+                  aria-haspopup="true"
+                  aria-controls="category-dropdown">
                   <span x-text="dashFilters.categoryIds.length ? `Категорий: ${dashFilters.categoryIds.length}` : 'Все категории'"></span>
                 </button>
-                <div class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
+                <div id="category-dropdown" class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
                   <template x-for="cat in categories" :key="cat.id">
                     <label class="multi-select-item">
                       <input type="checkbox" :value="cat.id" x-model="dashFilters.categoryIds" @change="loadDashboard()">
@@ -112,7 +123,7 @@
                 <span x-text="kpi.expenseDelta >= 0 ? '↑' : '↓'"></span>
                 <span x-text="Math.abs(kpi.expenseDeltaPercent) + '%'"></span>
               </p>
-              <p class="kpi-prev" x-show="kpi.prevPeriod" x-text="'в сравнении с ' + kpi.prevPeriod?.from + ' — ' + kpi.prevPeriod?.to"></p>
+              <p class="kpi-prev" x-show="kpi.prevPeriod" x-text="'в сравнении с ' + formatDate(kpi.prevPeriod?.from) + ' — ' + formatDate(kpi.prevPeriod?.to)"></p>
             </article>
             <article class="card-glow kpi-card" @click="highlightTopCategory()">
               <header>
@@ -153,12 +164,12 @@
             <article class="chart-card">
               <header class="chart-header">
                 <h5>Тепловая карта</h5>
-                <div class="group-tabs" role="group">
-                  <button :class="{ 'active': heatmapMode === 'expense' }" @click="setHeatmapMode('expense')">Расходы</button>
-                  <button :class="{ 'active': heatmapMode === 'income' }" @click="setHeatmapMode('income')">Доходы</button>
-                  <button :class="{ 'active': heatmapMode === 'count' }" @click="setHeatmapMode('count')">Количество</button>
-                </div>
               </header>
+              <div class="group-tabs" role="group">
+                <button :class="{ 'active': heatmapMode === 'expense' }" @click="setHeatmapMode('expense')">Расходы</button>
+                <button :class="{ 'active': heatmapMode === 'income' }" @click="setHeatmapMode('income')">Доходы</button>
+                <button :class="{ 'active': heatmapMode === 'count' }" @click="setHeatmapMode('count')">Количество</button>
+              </div>
               <div class="chart-wrap">
                 <div id="heatmap-grid" class="heatmap-grid"></div>
               </div>
@@ -247,9 +258,9 @@
                 <template x-for="tx in transactions.rows" :key="tx.id">
                   <tr>
                     <td><input type="checkbox" :value="tx.id" x-model="selectedIds"></td>
-                    <td x-text="tx.tx_date?.slice(0,10)"></td>
+                    <td x-text="formatDate(tx.tx_date)"></td>
                     <td x-text="tx.description"></td>
-                    <td :class="tx.tx_type" x-text="formatMoney(tx.amount)"></td>
+                    <td :class="tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                     <td x-text="tx.currency"></td>
                     <td x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"></td>
                     <td>
@@ -349,11 +360,19 @@
     </main>
 
     <!-- Drill-down Drawer -->
-    <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()"></div>
-    <aside class="drawer" :class="{ 'open': drawer.open }">
+    <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()" aria-hidden="true"></div>
+    <aside
+      class="drawer"
+      :class="{ 'open': drawer.open }"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+      tabindex="-1"
+      @keydown.escape.window="closeDrawer()"
+      x-trap="drawer.open">
       <header class="drawer-header">
-        <h4 x-text="drawer.title"></h4>
-        <button class="secondary outline small" @click="closeDrawer()">×</button>
+        <h4 id="drawer-title" x-text="drawer.title"></h4>
+        <button class="secondary outline small" @click="closeDrawer()" aria-label="Закрыть">×</button>
       </header>
       <div class="drawer-content">
         <div class="drawer-toolbar">
@@ -363,19 +382,19 @@
           <table role="grid" class="data-table drawer-table">
             <thead>
               <tr>
-                <th @click="sortDrawer('tx_date')" class="sortable">
+                <th @click="sortDrawer('tx_date')" class="sortable" :aria-sort="drawerSort.column === 'tx_date' ? (drawerSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'" aria-label="Сортировать по дате">
                   Дата
                   <span x-show="drawerSort.column === 'tx_date'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
                 </th>
-                <th @click="sortDrawer('description')" class="sortable">
+                <th @click="sortDrawer('description')" class="sortable" :aria-sort="drawerSort.column === 'description' ? (drawerSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'" aria-label="Сортировать по описанию">
                   Описание
                   <span x-show="drawerSort.column === 'description'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
                 </th>
-                <th class="text-right sortable" @click="sortDrawer('amount')">
+                <th class="text-right sortable" @click="sortDrawer('amount')" :aria-sort="drawerSort.column === 'amount' ? (drawerSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'" aria-label="Сортировать по сумме">
                   Сумма
                   <span x-show="drawerSort.column === 'amount'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
                 </th>
-                <th @click="sortDrawer('category')" class="sortable">
+                <th @click="sortDrawer('category')" class="sortable" :aria-sort="drawerSort.column === 'category' ? (drawerSort.direction === 'asc' ? 'ascending' : 'descending') : 'none'" aria-label="Сортировать по категории">
                   Категория
                   <span x-show="drawerSort.column === 'category'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
                 </th>
@@ -384,9 +403,9 @@
             <tbody>
               <template x-for="tx in sortedDrawerTransactions" :key="tx.id">
                 <tr>
-                  <td x-text="tx.tx_date?.slice(0,10)" class="drawer-date-cell"></td>
+                  <td x-text="formatDate(tx.tx_date)" class="drawer-date-cell"></td>
                   <td x-text="tx.description"></td>
-                  <td class="text-right" :class="tx.tx_type" x-text="formatMoney(tx.amount)"></td>
+                  <td class="text-right" :class="tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                   <td>
                     <span class="category-badge" :style="'background-color: ' + (categoryMap[tx.category_id]?.color || '#555')" x-text="categoryMap[tx.category_id]?.name || '—'"></span>
                   </td>
