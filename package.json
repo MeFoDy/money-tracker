@@ -27,6 +27,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@alpinejs/focus": "^3.15.12",
     "@fastify/cors": "^8.5.0",
     "@fastify/multipart": "^8.2.0",
     "@fastify/static": "^7.0.1",

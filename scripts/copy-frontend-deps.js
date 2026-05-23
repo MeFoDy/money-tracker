@@ -7,6 +7,7 @@ const publicDir = path.join(__dirname, '../src/web/public/vendor');
 
 const deps = [
   { from: 'alpinejs/dist/cdn.min.js', to: 'alpinejs.js' },
+  { from: '@alpinejs/focus/dist/cdn.min.js', to: 'alpine-focus.js' },
   { from: 'chart.js/dist/chart.umd.js', to: 'chart.js' },
   { from: 'chartjs-plugin-datalabels/dist/chartjs-plugin-datalabels.min.js', to: 'chartjs-plugin-datalabels.js' },
   { from: '@picocss/pico/css/pico.min.css', to: 'pico.css' },
