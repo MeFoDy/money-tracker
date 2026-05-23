@@ -95,23 +95,7 @@ export function renderDoughnut(canvasId, labels, data, colors, categoryIds, { on
           display: false
         }
       }
-    },
-    plugins: [{
-      id: 'centerText',
-      beforeDraw(chart) {
-        const { ctx, width, height } = chart;
-        ctx.save();
-        ctx.font = "bold 1.4rem 'SF Mono', 'Fira Code', monospace";
-        ctx.fillStyle = '#e8ecf1';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(formatCurrency(total), width / 2, height / 2);
-        ctx.font = "0.75rem 'SF Mono', 'Fira Code', monospace";
-        ctx.fillStyle = '#8b95a8';
-        ctx.fillText('Всего расходов', width / 2, height / 2 + 22);
-        ctx.restore();
-      }
-    }]
+    }
   });
 }
 

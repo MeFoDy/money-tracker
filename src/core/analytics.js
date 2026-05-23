@@ -5,8 +5,8 @@ function buildWhere({ from, to, accountId, type, categoryId, categoryIds, isPend
   const conditions = [];
   const params = [];
 
-  if (from) { conditions.push(`${a}tx_date >= ?`); params.push(from); }
-  if (to) { conditions.push(`${a}tx_date <= ?`); params.push(to); }
+  if (from) { conditions.push(`DATE(${a}tx_date) >= ?`); params.push(from); }
+  if (to) { conditions.push(`DATE(${a}tx_date) <= ?`); params.push(to); }
   if (accountId) { conditions.push(`${a}account_id = ?`); params.push(accountId); }
   if (type) { conditions.push(`${a}tx_type = ?`); params.push(type); }
   if (categoryIds && categoryIds.length > 0) {
@@ -329,14 +329,17 @@ export function getHeatmapData({ from, to, accountId, mode = 'expense', category
 
   const sql = `
     SELECT
-      CAST(strftime('%w', tx_date) AS INTEGER) AS dayOfWeek,
+      (CAST(strftime('%w', tx_date) AS INTEGER) + 6) % 7 AS dayOfWeek,
       strftime('%Y-%W', tx_date) AS week,
       ${valueExpr} AS value,
-      tx_date AS date
+      COUNT(*) AS count,
+      SUM(CASE WHEN tx_type = 'income' THEN COALESCE(amount_byn, amount) ELSE 0 END) -
+      SUM(CASE WHEN tx_type = 'expense' THEN ABS(COALESCE(amount_byn, amount)) ELSE 0 END) AS profit,
+      DATE(tx_date) AS date
     FROM transactions
     ${where}
-    GROUP BY tx_date
-    ORDER BY tx_date
+    GROUP BY DATE(tx_date)
+    ORDER BY DATE(tx_date)
   `;
   return getDb().prepare(sql).all(...params);
 }

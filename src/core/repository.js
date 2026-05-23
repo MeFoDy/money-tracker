@@ -87,8 +87,8 @@ export function getTransactions({ from, to, accountId, categoryId, search, isPen
   const conditions = [];
   const params = [];
 
-  if (from) { conditions.push('tx_date >= ?'); params.push(from); }
-  if (to) { conditions.push('tx_date <= ?'); params.push(to); }
+  if (from) { conditions.push('DATE(tx_date) >= ?'); params.push(from); }
+  if (to) { conditions.push('DATE(tx_date) <= ?'); params.push(to); }
   if (accountId) { conditions.push('account_id = ?'); params.push(accountId); }
   if (categoryId !== undefined) {
     if (categoryId === null) conditions.push('category_id IS NULL');

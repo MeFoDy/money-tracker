@@ -948,46 +948,127 @@ button.small {
 }
 
 /* ---------- Heatmap Grid ---------- */
+.heatmap-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+}
+
 .heatmap-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  padding: 1rem;
+  min-width: max-content;
+}
+
+.heatmap-month {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.heatmap-month-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 0.5rem;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+
+.heatmap-month-grid {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 1rem;
 }
 
 .heatmap-row {
   display: flex;
+  align-items: center;
   gap: 3px;
 }
 
+.heatmap-label-row {
+  margin-bottom: 2px;
+}
+
 .heatmap-cell {
-  width: calc(100% / 7);
-  aspect-ratio: 1;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   background: var(--bg-surface-2);
   cursor: pointer;
-  transition: transform 0.15s ease;
-}
-
-.heatmap-cell:hover {
-  transform: scale(1.1);
-  border: 1px solid var(--border-hover);
-}
-
-.heatmap-header .heatmap-cell {
-  background: transparent;
-  cursor: default;
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  user-select: none;
 }
 
-.heatmap-header .heatmap-cell:hover {
-  transform: none;
-  border: none;
+.heatmap-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(255,255,255,0.2);
+  z-index: 2;
+  position: relative;
+}
+
+.heatmap-day-label {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+/* Heatmap Tooltip */
+.heatmap-tooltip {
+  position: fixed;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  z-index: 1000;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.heatmap-tooltip.visible {
+  opacity: 1;
+}
+
+.heatmap-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.heatmap-tooltip-row:last-child {
+  margin-bottom: 0;
+}
+
+.heatmap-tooltip-label {
+  color: var(--text-muted);
+}
+
+.heatmap-tooltip-value {
+  font-weight: 600;
+  text-align: right;
 }
 
 /* ---------- Drawer Toolbar ---------- */
@@ -1049,9 +1130,6 @@ button.small {
 @media (max-width: 768px) {
   .kpi-cards {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .charts-row {
-    grid-template-columns: 1fr !important;
   }
   .chart-wrap-tall {
     height: 280px;

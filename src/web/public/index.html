@@ -56,11 +56,7 @@
                 </template>
               </select>
               <div class="multi-select-wrap">
-                <button type="button"
-                  @click="toggleCategoryDropdown()"
-                  :aria-expanded="categoryDropdownOpen"
-                  aria-haspopup="true"
-                  aria-controls="category-dropdown">
+                <button type="button" @click="toggleCategoryDropdown()" :aria-expanded="categoryDropdownOpen" aria-haspopup="true" aria-controls="category-dropdown">
                   <span x-text="dashFilters.categoryIds.length ? `Категорий: ${dashFilters.categoryIds.length}` : 'Все категории'"></span>
                 </button>
                 <div id="category-dropdown" class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
@@ -154,28 +150,28 @@
             <div class="chart-wrap chart-wrap-tall"><canvas id="chart-income-expense"></canvas></div>
           </article>
 
-          <!-- Doughnut + Heatmap Row -->
-          <div class="grid charts-row">
-            <article class="chart-card">
-              <header>
-                <h5>Расходы по категориям</h5>
-              </header>
-              <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <header class="chart-header">
-                <h5>Тепловая карта</h5>
-              </header>
-              <div class="group-tabs" role="group">
-                <button :class="{ 'active': heatmapMode === 'expense' }" @click="setHeatmapMode('expense')">Расходы</button>
-                <button :class="{ 'active': heatmapMode === 'income' }" @click="setHeatmapMode('income')">Доходы</button>
-                <button :class="{ 'active': heatmapMode === 'count' }" @click="setHeatmapMode('count')">Количество</button>
-              </div>
-              <div class="chart-wrap">
-                <div id="heatmap-grid" class="heatmap-grid"></div>
-              </div>
-            </article>
-          </div>
+          <!-- Category Doughnut -->
+          <article class="chart-card chart-card-wide">
+            <header>
+              <h5>Расходы по категориям (всего: <span x-text="formatMoney(kpi.expense)"></span>)</h5>
+            </header>
+            <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
+          </article>
+
+          <!-- Heatmap -->
+          <article class="chart-card chart-card-wide">
+            <header class="chart-header">
+              <h5>Тепловая карта</h5>
+            </header>
+            <div class="group-tabs" role="group">
+              <button :class="{ 'active': heatmapMode === 'expense' }" @click="setHeatmapMode('expense')">Расходы</button>
+              <button :class="{ 'active': heatmapMode === 'income' }" @click="setHeatmapMode('income')">Доходы</button>
+              <button :class="{ 'active': heatmapMode === 'count' }" @click="setHeatmapMode('count')">Количество</button>
+            </div>
+            <div class="chart-wrap heatmap-wrap">
+              <div id="heatmap-grid" class="heatmap-grid"></div>
+            </div>
+          </article>
 
           <!-- Period Comparison Chart -->
           <article class="chart-card chart-card-wide">
@@ -362,15 +358,7 @@
 
     <!-- Drill-down Drawer -->
     <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()" aria-hidden="true"></div>
-    <aside
-      class="drawer"
-      :class="{ 'open': drawer.open }"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="drawer-title"
-      tabindex="-1"
-      @keydown.escape.window="closeDrawer()"
-      x-trap="drawer.open">
+    <aside class="drawer" :class="{ 'open': drawer.open }" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1" @keydown.escape.window="closeDrawer()" x-trap="drawer.open">
       <header class="drawer-header">
         <h4 id="drawer-title" x-text="drawer.title"></h4>
         <button class="secondary outline small" @click="closeDrawer()" aria-label="Закрыть">×</button>

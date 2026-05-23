@@ -276,23 +276,9 @@ document.addEventListener('alpine:init', () => {
     renderHeatmap(data) {
       const container = document.querySelector('#heatmap-grid');
       if (!container) return;
+      this._removeHeatmapTooltip?.();
       const frag = document.createDocumentFragment();
       const maxValue = Math.max(...data.map(d => d.value), 1);
-      const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-      const headerRow = document.createElement('div');
-      headerRow.className = 'heatmap-row heatmap-header';
-      for (const d of dayNames) {
-        const cell = document.createElement('div');
-        cell.className = 'heatmap-cell';
-        cell.textContent = d;
-        headerRow.append(cell);
-      }
-      frag.append(headerRow);
-      const weeks = {};
-      for (const item of data) {
-        if (!weeks[item.week]) weeks[item.week] = {};
-        weeks[item.week][item.dayOfWeek] = item;
-      }
       const mode = this.heatmapMode;
       const colorMap = {
         expense: '244, 63, 94',
@@ -300,24 +286,161 @@ document.addEventListener('alpine:init', () => {
         count: '59, 130, 246',
       };
       const rgb = colorMap[mode] || colorMap.expense;
-      for (const week of Object.keys(weeks).toSorted()) {
-        const row = document.createElement('div');
-        row.className = 'heatmap-row';
-        for (let d = 0; d < 7; d++) {
-          const cell = document.createElement('div');
-          cell.className = 'heatmap-cell';
-          const item = weeks[week][d];
-          if (item) {
-            const intensity = item.value / maxValue;
-            cell.style.backgroundColor = `rgba(${rgb}, ${0.15 + intensity * 0.7})`;
-            cell.title = `${fmtDate(item.date)}: ${this.formatMoney(item.value)}`;
-            cell.addEventListener('click', () => this.openDrawerForDay(item.date));
-          }
-          row.append(cell);
-        }
-        frag.append(row);
+      const modeLabel = { expense: 'Расходы', income: 'Доходы', count: 'Операций' };
+      const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+      // Index by date (normalized to YYYY-MM-DD)
+      const byDate = {};
+      for (const item of data) {
+        const key = item.date.slice(0, 10);
+        byDate[key] = item;
       }
+
+      // Group by month (YYYY-MM)
+      const months = [...new Set(data.map(d => d.date.slice(0, 7)))].toSorted();
+
+      for (const monthKey of months) {
+        const [year, month] = monthKey.split('-').map(Number);
+        const monthName = `${monthNames[month - 1]} ${year}`;
+
+        const firstDay = new Date(year, month - 1, 1);
+        const lastDay = new Date(year, month, 0);
+        const daysInMonth = lastDay.getDate();
+        const jsDayOfWeek = firstDay.getDay(); // 0=Sun
+        const mondayBasedDay = (jsDayOfWeek + 6) % 7; // 0=Mon
+
+        const totalCells = mondayBasedDay + daysInMonth;
+        const weeksCount = Math.ceil(totalCells / 7);
+
+        const monthBlock = document.createElement('div');
+        monthBlock.className = 'heatmap-month';
+
+        const header = document.createElement('div');
+        header.className = 'heatmap-month-header';
+        header.textContent = monthName;
+        monthBlock.append(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'heatmap-month-grid';
+
+        // Rows for each day of week (Mon-Sun)
+        for (let d = 0; d < 7; d++) {
+          const row = document.createElement('div');
+          row.className = 'heatmap-row';
+          const dayLabel = document.createElement('div');
+          dayLabel.className = 'heatmap-day-label';
+          dayLabel.textContent = dayNames[d];
+          row.append(dayLabel);
+
+          for (let w = 0; w < weeksCount; w++) {
+            const cell = document.createElement('div');
+            cell.className = 'heatmap-cell';
+            const dayNumber = w * 7 + d - mondayBasedDay + 1;
+
+            if (dayNumber >= 1 && dayNumber <= daysInMonth) {
+              const dateStr = `${monthKey}-${String(dayNumber).padStart(2, '0')}`;
+              const item = byDate[dateStr];
+              cell.textContent = dayNumber;
+
+              if (item) {
+                const intensity = item.value / maxValue;
+                cell.style.backgroundColor = `rgba(${rgb}, ${0.15 + intensity * 0.7})`;
+                cell.dataset.date = dateStr;
+                cell.dataset.rawValue = String(item.value);
+                cell.dataset.count = String(item.count || 1);
+                cell.dataset.profit = String(item.profit || 0);
+                cell.dataset.day = dayNames[d];
+                cell.dataset.modeLabel = modeLabel[mode] || '';
+                cell.addEventListener('click', () => this.openDrawerForDay(dateStr));
+              } else {
+                cell.style.backgroundColor = 'transparent';
+                cell.style.cursor = 'default';
+              }
+            } else {
+              cell.style.backgroundColor = 'transparent';
+              cell.style.cursor = 'default';
+            }
+            row.append(cell);
+          }
+          grid.append(row);
+        }
+        monthBlock.append(grid);
+        frag.append(monthBlock);
+      }
+
       container.replaceChildren(frag);
+      this._attachHeatmapTooltip(container, mode, rgb, maxValue);
+    },
+
+    _attachHeatmapTooltip(container, mode, rgb, maxValue) {
+      const modeLabel = { expense: 'Расходы', income: 'Доходы', count: 'Операций' };
+      let tooltip = document.querySelector('.heatmap-tooltip');
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'heatmap-tooltip';
+        document.body.append(tooltip);
+      }
+
+      const show = (e) => {
+        const cell = e.target.closest('.heatmap-cell');
+        if (!cell || !cell.dataset.date) return;
+        const date = cell.dataset.date;
+        const rawValue = cell.dataset.rawValue;
+        const count = cell.dataset.count;
+        const profit = cell.dataset.profit;
+        const day = cell.dataset.day;
+        const formattedValue = this.formatMoney(rawValue);
+        const formattedProfit = this.formatMoney(profit);
+        const intensity = ((Number.parseFloat(rawValue) / maxValue) * 100).toFixed(0);
+
+        let rows = `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Дата</span><span>${fmtDate(date)} (${day})</span></div>`;
+
+        if (mode === 'count') {
+          rows += `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Прибыль</span><span class="heatmap-tooltip-value">${formattedProfit}</span></div>`;
+          rows += `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Операций</span><span>${count}</span></div>`;
+        } else {
+          rows += `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">${modeLabel[mode]}</span><span class="heatmap-tooltip-value" style="color: rgb(${rgb})">${formattedValue}</span></div>`;
+          rows += `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Операций</span><span>${count}</span></div>`;
+        }
+
+        rows += `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Интенсивность</span><span>${intensity}%</span></div>`;
+
+        tooltip.innerHTML = rows;
+        tooltip.classList.add('visible');
+        this._positionTooltip(tooltip, e);
+      };
+
+      const move = (e) => {
+        if (!tooltip.classList.contains('visible')) return;
+        this._positionTooltip(tooltip, e);
+      };
+
+      const hide = () => {
+        tooltip.classList.remove('visible');
+      };
+
+      container.addEventListener('mouseover', show);
+      container.addEventListener('mousemove', move);
+      container.addEventListener('mouseout', hide);
+
+      this._removeHeatmapTooltip = () => {
+        hide();
+        container.removeEventListener('mouseover', show);
+        container.removeEventListener('mousemove', move);
+        container.removeEventListener('mouseout', hide);
+      };
+    },
+
+    _positionTooltip(tooltip, e) {
+      const pad = 12;
+      let left = e.clientX + pad;
+      let top = e.clientY + pad;
+      const rect = tooltip.getBoundingClientRect();
+      if (left + rect.width > window.innerWidth) left = e.clientX - rect.width - pad;
+      if (top + rect.height > window.innerHeight) top = e.clientY - rect.height - pad;
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
     },
 
     setGroupBy(val) {
