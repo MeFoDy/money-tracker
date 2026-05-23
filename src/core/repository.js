@@ -1,5 +1,11 @@
 import { getDb } from './db.js';
 
+function nextDay(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
+
 /* ---------- Accounts ---------- */
 export function createAccount({ accountNumber, name, currency = 'BYN' }) {
   const db = getDb();
@@ -87,8 +93,8 @@ export function getTransactions({ from, to, accountId, categoryId, search, isPen
   const conditions = [];
   const params = [];
 
-  if (from) { conditions.push('DATE(tx_date) >= ?'); params.push(from); }
-  if (to) { conditions.push('DATE(tx_date) <= ?'); params.push(to); }
+  if (from) { conditions.push('tx_date >= ?'); params.push(from.slice(0, 10)); }
+  if (to) { conditions.push('tx_date < ?'); params.push(nextDay(to.slice(0, 10))); }
   if (accountId) { conditions.push('account_id = ?'); params.push(accountId); }
   if (categoryId !== undefined) {
     if (categoryId === null) conditions.push('category_id IS NULL');

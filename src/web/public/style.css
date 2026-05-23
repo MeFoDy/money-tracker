@@ -958,7 +958,7 @@ button.small {
   display: flex;
   flex-direction: row;
   gap: 1.5rem;
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   min-width: max-content;
 }
 
@@ -1073,8 +1073,7 @@ button.small {
 
 /* ---------- Drawer Toolbar ---------- */
 .drawer-toolbar {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 0;
 }
 
 .drawer-search {

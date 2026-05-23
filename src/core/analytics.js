@@ -1,12 +1,18 @@
 import { getDb } from './db.js';
 
+function nextDay(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
+
 function buildWhere({ from, to, accountId, type, categoryId, categoryIds, isPending = false, noAlias = false } = {}) {
   const a = noAlias ? '' : 't.';
   const conditions = [];
   const params = [];
 
-  if (from) { conditions.push(`DATE(${a}tx_date) >= ?`); params.push(from); }
-  if (to) { conditions.push(`DATE(${a}tx_date) <= ?`); params.push(to); }
+  if (from) { conditions.push(`${a}tx_date >= ?`); params.push(from.slice(0, 10)); }
+  if (to) { conditions.push(`${a}tx_date < ?`); params.push(nextDay(to.slice(0, 10))); }
   if (accountId) { conditions.push(`${a}account_id = ?`); params.push(accountId); }
   if (type) { conditions.push(`${a}tx_type = ?`); params.push(type); }
   if (categoryIds && categoryIds.length > 0) {
@@ -124,7 +130,7 @@ export function getIncomeExpenseOverTime({ from, to, accountId, categoryIds, typ
   const { where, params } = buildWhere({ from, to, accountId, categoryIds, type, noAlias: true });
 
   let periodExpr;
-  if (groupBy === 'day') periodExpr = "tx_date";
+  if (groupBy === 'day') periodExpr = "DATE(tx_date)";
   else if (groupBy === 'week') periodExpr = "strftime('%Y-%W', tx_date)";
   else periodExpr = "strftime('%Y-%m', tx_date)";
 

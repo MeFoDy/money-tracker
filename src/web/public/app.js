@@ -475,7 +475,8 @@ document.addEventListener('alpine:init', () => {
 
     periodToDateRange(period, groupBy) {
       if (groupBy === 'day') {
-        return { from: period, to: period };
+        const date = String(period).slice(0, 10);
+        return { from: date, to: date };
       }
       if (groupBy === 'month') {
         const [year, month] = period.split('-');
