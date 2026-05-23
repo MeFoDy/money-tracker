@@ -131,16 +131,8 @@ document.addEventListener('alpine:init', () => {
       const today = now.toISOString().slice(0, 10);
       let from;
       switch (this.dashFilters.period) {
-        case 'year': {
-          from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
         case 'month': {
           from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
-        case 'week': {
-          from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString().slice(0, 10);
           break;
         }
         case 'all': {
@@ -225,6 +217,13 @@ document.addEventListener('alpine:init', () => {
         if (!weeks[item.week]) weeks[item.week] = {};
         weeks[item.week][item.dayOfWeek] = item;
       }
+      const mode = this.heatmapMode;
+      const colorMap = {
+        expense: '244, 63, 94',
+        income: '34, 197, 94',
+        count: '59, 130, 246',
+      };
+      const rgb = colorMap[mode] || colorMap.expense;
       for (const week of Object.keys(weeks).toSorted()) {
         const row = document.createElement('div');
         row.className = 'heatmap-row';
@@ -234,7 +233,7 @@ document.addEventListener('alpine:init', () => {
           const item = weeks[week][d];
           if (item) {
             const intensity = item.value / maxValue;
-            cell.style.backgroundColor = `rgba(244, 63, 94, ${0.15 + intensity * 0.7})`;
+            cell.style.backgroundColor = `rgba(${rgb}, ${0.15 + intensity * 0.7})`;
             cell.title = `${item.date}: ${this.formatMoney(item.value)}`;
             cell.addEventListener('click', () => this.openDrawerForDay(item.date));
           }
