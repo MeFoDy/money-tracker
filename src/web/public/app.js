@@ -254,6 +254,7 @@ document.addEventListener('alpine:init', () => {
         }
         frag.append(row);
       }
+      container.replaceChildren(frag);
     },
 
     setGroupBy(val) {
