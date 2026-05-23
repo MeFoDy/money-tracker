@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Money Tracker — личный финансовый дашборд для отслеживания доходов, расходов и анализа транзакций.">
   <title>Money Tracker</title>
   <base href="./">
   <link rel="stylesheet" href="./vendor/pico.css">
@@ -66,7 +67,8 @@
 
             <!-- Row 2: Other filters -->
             <div class="filter-row filter-row-others">
-              <select x-model="dashFilters.accountId" @change="loadDashboard()">
+              <label class="visually-hidden" for="dash-account">Счёт</label>
+              <select id="dash-account" x-model="dashFilters.accountId" @change="loadDashboard()">
                 <option value="">Все счета</option>
                 <template x-for="acc in accounts" :key="acc.id">
                   <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
