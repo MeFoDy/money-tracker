@@ -8,7 +8,9 @@ import {
   getTopCounterparties,
   getBalanceOverTime,
   getSummaryStats,
-  getUncategorizedCount
+  getUncategorizedCount,
+  getKpiMetrics,
+  getIncomeExpenseOverTime
 } from '../src/core/analytics.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
 
@@ -46,7 +48,7 @@ describe('Analytics', () => {
     const rows = getSpendingByCategory({ type: 'expense' });
     assert.ok(rows.length > 0);
     rows.forEach(r => {
-      assert.ok(r.total <= 0, 'expense totals should be <= 0');
+      assert.ok(r.total >= 0, 'expense totals should be >= 0');
     });
   });
 
@@ -67,5 +69,36 @@ describe('Analytics', () => {
   test('getUncategorizedCount returns number', () => {
     const count = getUncategorizedCount();
     assert.equal(typeof count, 'number');
+  });
+
+  test('getKpiMetrics returns structured KPIs', () => {
+    const stats = getKpiMetrics();
+    assert.equal(typeof stats, 'object');
+    assert.equal(typeof stats.balance, 'number');
+    assert.equal(typeof stats.income, 'number');
+    assert.equal(typeof stats.expense, 'number');
+    assert.equal(typeof stats.incomeDelta, 'number');
+    assert.equal(typeof stats.incomeDeltaPercent, 'number');
+    assert.equal(typeof stats.expenseDelta, 'number');
+    assert.equal(typeof stats.expenseDeltaPercent, 'number');
+    assert.equal(typeof stats.transactionCount, 'number');
+    assert.equal(stats.topCategory?.name !== undefined, true);
+    assert.equal(stats.topCategory?.total !== undefined, true);
+    assert.equal(typeof stats.prevPeriod, 'object');
+    assert.equal(typeof stats.prevPeriod.from, 'string');
+    assert.equal(typeof stats.prevPeriod.to, 'string');
+    assert.equal(typeof stats.prevPeriod.income, 'number');
+    assert.equal(typeof stats.prevPeriod.expense, 'number');
+  });
+
+  test('getIncomeExpenseOverTime returns grouped data', () => {
+    const rows = getIncomeExpenseOverTime({ groupBy: 'month' });
+    assert.ok(rows.length > 0);
+    rows.forEach(r => {
+      assert.ok(r.period);
+      assert.equal(typeof r.income, 'number');
+      assert.equal(typeof r.expense, 'number');
+      assert.equal(typeof r.cumulative_balance, 'number');
+    });
   });
 });

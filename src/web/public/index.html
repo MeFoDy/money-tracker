@@ -7,8 +7,9 @@
   <base href="./">
   <link rel="stylesheet" href="./vendor/pico.css">
   <link rel="stylesheet" href="./style.css">
-  <script type="module" src="./app.js"></script>
   <script defer src="./vendor/chart.js"></script>
+  <script defer src="./vendor/chartjs-plugin-datalabels.js"></script>
+  <script type="module" src="./app.js"></script>
   <script defer src="./vendor/alpinejs.js"></script>
 </head>
 <body>
@@ -29,35 +30,118 @@
       <!-- Dashboard -->
       <template x-if="page === 'dashboard'">
         <div>
-          <div class="grid summary-cards">
-            <article class="card-glow">
-              <header><h4>Операций</h4></header>
-              <p class="big" x-text="formatNum(summary.totalTx)"></p>
+          <!-- Dashboard Filters -->
+          <div class="dashboard-filters">
+            <select x-model="dashFilters.period" @change="applyDashPeriod()">
+              <option value="year">За год</option>
+              <option value="3months">За три месяца</option>
+              <option value="month">За месяц</option>
+              <option value="week">За неделю</option>
+            </select>
+            <input type="date" x-model="dashFilters.from" @change="loadDashboard()" placeholder="От">
+            <input type="date" x-model="dashFilters.to" @change="loadDashboard()" placeholder="До">
+            <select x-model="dashFilters.accountId" @change="loadDashboard()">
+              <option value="">Все счета</option>
+              <template x-for="acc in accounts" :key="acc.id">
+                <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+              </template>
+            </select>
+            <select x-model="dashFilters.txType" @change="loadDashboard()">
+              <option value="all">Все операции</option>
+              <option value="income">Только доходы</option>
+              <option value="expense">Только расходы</option>
+            </select>
+            <div class="multi-select-wrap">
+              <button type="button" class="secondary outline" @click="toggleCategoryDropdown()">
+                <span x-text="dashFilters.categoryIds.length ? `${dashFilters.categoryIds.length} категорий` : 'Все категории'"></span>
+              </button>
+              <div class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
+                <template x-for="cat in categories" :key="cat.id">
+                  <label class="multi-select-item">
+                    <input type="checkbox" :value="cat.id" x-model="dashFilters.categoryIds" @change="loadDashboard()">
+                    <span class="color-swatch small" :style="'background-color: ' + (cat.color || '#cccccc')"></span>
+                    <span x-text="cat.name"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+            <button class="secondary outline" @click="resetDashFilters()">Сбросить</button>
+          </div>
+
+          <!-- KPI Cards -->
+          <div class="grid kpi-cards">
+            <article class="card-glow kpi-card" @click="toggleLineDataset('balance')">
+              <header><h5>Баланс</h5></header>
+              <p class="big" :class="kpi.balance >= 0 ? 'income' : 'expense'" x-text="formatMoney(kpi.balance)"></p>
             </article>
-            <article class="card-glow income-border">
-              <header><h4>Доходы</h4></header>
-              <p class="big income" x-text="formatMoney(summary.totalIncome)"></p>
+            <article class="card-glow kpi-card income-border" @click="toggleLineDataset('income')">
+              <header><h5>Доходы</h5></header>
+              <p class="big income" x-text="formatMoney(kpi.income)"></p>
+              <p class="kpi-delta" :class="kpi.incomeDelta >= 0 ? 'delta-positive' : 'delta-negative'">
+                <span x-text="kpi.incomeDelta >= 0 ? '↑' : '↓'"></span>
+                <span x-text="Math.abs(kpi.incomeDeltaPercent) + '%'"></span>
+              </p>
+              <p class="kpi-prev" x-show="kpi.prevPeriod" x-text="'пред. период: ' + kpi.prevPeriod?.from + ' — ' + kpi.prevPeriod?.to"></p>
             </article>
-            <article class="card-glow expense-border">
-              <header><h4>Расходы</h4></header>
-              <p class="big expense" x-text="formatMoney(summary.totalExpense)"></p>
+            <article class="card-glow kpi-card expense-border" @click="toggleLineDataset('expense')">
+              <header><h5>Расходы</h5></header>
+              <p class="big expense" x-text="formatMoney(kpi.expense)"></p>
+              <p class="kpi-delta" :class="kpi.expenseDelta >= 0 ? 'delta-negative' : 'delta-positive'">
+                <span x-text="kpi.expenseDelta >= 0 ? '↑' : '↓'"></span>
+                <span x-text="Math.abs(kpi.expenseDeltaPercent) + '%'"></span>
+              </p>
+              <p class="kpi-prev" x-show="kpi.prevPeriod" x-text="'пред. период: ' + kpi.prevPeriod?.from + ' — ' + kpi.prevPeriod?.to"></p>
             </article>
-            <article class="card-glow warn-border">
-              <header><h4>Без категории</h4></header>
-              <p class="big warn" x-text="summary.uncategorized"></p>
+            <article class="card-glow kpi-card" @click="highlightTopCategory()">
+              <header><h5>Топ-категория</h5></header>
+              <p class="kpi-label" x-text="kpi.topCategory?.name || '—'"></p>
+              <p class="big expense" x-text="formatMoney(kpi.topCategory?.total || 0)"></p>
+            </article>
+            <article class="card-glow kpi-card">
+              <header><h5>Операций</h5></header>
+              <p class="big" x-text="formatNum(kpi.transactionCount)"></p>
             </article>
           </div>
 
+          <!-- Line Chart -->
+          <article class="chart-card chart-card-wide">
+            <header class="chart-header">
+              <h5>Доходы и расходы</h5>
+              <div class="group-tabs" role="group">
+                <button :class="{ 'active': groupBy === 'day' }" @click="setGroupBy('day')">День</button>
+                <button :class="{ 'active': groupBy === 'week' }" @click="setGroupBy('week')">Неделя</button>
+                <button :class="{ 'active': groupBy === 'month' }" @click="setGroupBy('month')">Месяц</button>
+              </div>
+            </header>
+            <div class="chart-wrap chart-wrap-tall"><canvas id="chart-income-expense"></canvas></div>
+          </article>
+
+          <!-- Doughnut + Heatmap Row -->
           <div class="grid charts-row">
             <article class="chart-card">
               <header><h5>Расходы по категориям</h5></header>
               <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
             </article>
             <article class="chart-card">
-              <header><h5>Баланс во времени</h5></header>
-              <div class="chart-wrap"><canvas id="chart-balance"></canvas></div>
+              <header class="chart-header">
+                <h5>Тепловая карта</h5>
+                <div class="group-tabs" role="group">
+                  <button :class="{ 'active': heatmapMode === 'expense' }" @click="setHeatmapMode('expense')">Расходы</button>
+                  <button :class="{ 'active': heatmapMode === 'income' }" @click="setHeatmapMode('income')">Доходы</button>
+                  <button :class="{ 'active': heatmapMode === 'count' }" @click="setHeatmapMode('count')">Кол-во</button>
+                </div>
+              </header>
+              <div class="chart-wrap">
+                <div id="heatmap-grid" class="heatmap-grid"></div>
+              </div>
             </article>
           </div>
+
+          <!-- Period Comparison Chart -->
+          <article class="chart-card chart-card-wide">
+            <header><h5>Сравнение с предыдущим периодом</h5></header>
+            <div class="chart-wrap chart-wrap-tall"><canvas id="chart-comparison"></canvas></div>
+          </article>
         </div>
       </template>
 
@@ -237,6 +321,59 @@
         </div>
       </template>
     </main>
+
+    <!-- Drill-down Drawer -->
+    <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()"></div>
+    <aside class="drawer" :class="{ 'open': drawer.open }">
+      <header class="drawer-header">
+        <h4 x-text="drawer.title"></h4>
+        <button class="secondary outline small" @click="closeDrawer()">×</button>
+      </header>
+      <div class="drawer-content">
+        <div class="drawer-toolbar">
+          <input type="text" x-model.debounce.300ms="drawerSearch" placeholder="Поиск по описанию..." class="drawer-search">
+        </div>
+        <figure class="data-table-wrap">
+          <table role="grid" class="data-table drawer-table">
+            <thead>
+              <tr>
+                <th @click="sortDrawer('tx_date')" class="sortable">
+                  Дата
+                  <span x-show="drawerSort.column === 'tx_date'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
+                </th>
+                <th @click="sortDrawer('description')" class="sortable">
+                  Описание
+                  <span x-show="drawerSort.column === 'description'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
+                </th>
+                <th @click="sortDrawer('category')" class="sortable">
+                  Категория
+                  <span x-show="drawerSort.column === 'category'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
+                </th>
+                <th class="text-right sortable" @click="sortDrawer('amount')">
+                  Сумма
+                  <span x-show="drawerSort.column === 'amount'" x-text="drawerSort.direction === 'asc' ? '↑' : '↓'"></span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="tx in sortedDrawerTransactions" :key="tx.id">
+                <tr>
+                  <td x-text="tx.tx_date?.slice(0,10)"></td>
+                  <td x-text="tx.description"></td>
+                  <td>
+                    <span class="category-badge" :style="'background-color: ' + (categoryMap[tx.category_id]?.color || '#555')" x-text="categoryMap[tx.category_id]?.name || '—'"></span>
+                  </td>
+                  <td class="text-right" :class="tx.tx_type" x-text="formatMoney(tx.amount)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </figure>
+        <template x-if="sortedDrawerTransactions.length === 0">
+          <p class="empty-state">Нет транзакций</p>
+        </template>
+      </div>
+    </aside>
   </div>
 </body>
 </html>
