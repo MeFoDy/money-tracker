@@ -50,6 +50,11 @@ document.addEventListener('alpine:init', () => {
       });
       if (this.page === 'dashboard') await this.loadDashboard();
       if (this.page === 'transactions') await this.loadTransactions();
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.drawer.open) {
+          this.closeDrawer();
+        }
+      });
     },
 
     async api(path, opts = {}) {
@@ -114,6 +119,53 @@ document.addEventListener('alpine:init', () => {
       if (cids) this.dashFilters.categoryIds = cids.split(',').map(Number);
       const gb = url.searchParams.get('groupBy');
       if (gb) this.groupBy = gb;
+    },
+
+    onDashDateChange() {
+      this.dashFilters.period = 'custom';
+      this.loadDashboard();
+    },
+
+    applyDashPeriod(shouldLoad = true) {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      let from;
+      switch (this.dashFilters.period) {
+        case 'year': {
+          from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+          break;
+        }
+        case 'month': {
+          from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().slice(0, 10);
+          break;
+        }
+        case 'week': {
+          from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString().slice(0, 10);
+          break;
+        }
+        case 'all': {
+          from = '';
+          break;
+        }
+        case 'custom': {
+          // keep existing dates
+          if (shouldLoad) this.loadDashboard();
+          return;
+        }
+        default: {
+          from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().slice(0, 10);
+          break;
+        }
+      }
+      this.dashFilters.from = from;
+      this.dashFilters.to = this.dashFilters.period === 'all' ? '' : today;
+      if (shouldLoad) this.loadDashboard();
+    },
+
+    resetDashFilters() {
+      this.dashFilters = { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' };
+      this.groupBy = 'month';
+      this.applyDashPeriod();
     },
 
     async loadDashboard() {
@@ -222,10 +274,45 @@ document.addEventListener('alpine:init', () => {
       // Will be implemented when chart.js programmatic highlighting is needed
     },
 
+    periodToDateRange(period, groupBy) {
+      if (groupBy === 'day') {
+        return { from: period, to: period };
+      }
+      if (groupBy === 'month') {
+        const [year, month] = period.split('-');
+        const from = `${year}-${month}-01`;
+        const to = new Date(Number(year), Number(month), 0).toISOString().slice(0, 10);
+        return { from, to };
+      }
+      if (groupBy === 'week') {
+        const [year, weekStr] = period.split('-');
+        const week = Number(weekStr);
+        const jan1 = new Date(Number(year), 0, 1);
+        const dayOfWeek = jan1.getDay(); // 0=Sun, 1=Mon, ...
+        const daysToMonday = (1 - dayOfWeek + 7) % 7;
+        const firstMonday = new Date(Number(year), 0, 1 + daysToMonday);
+        if (week === 0) {
+          const from = `${year}-01-01`;
+          const to = new Date(firstMonday.getTime() - 86400000).toISOString().slice(0, 10);
+          return { from, to };
+        }
+        const monday = new Date(firstMonday);
+        monday.setDate(firstMonday.getDate() + (week - 1) * 7);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        return {
+          from: monday.toISOString().slice(0, 10),
+          to: sunday.toISOString().slice(0, 10)
+        };
+      }
+      return { from: period, to: period };
+    },
+
     async openDrawerForPeriod(item) {
+      const { from, to } = this.periodToDateRange(item.period, this.groupBy);
       const q = new URLSearchParams();
-      q.set('from', item.period);
-      q.set('to', item.period);
+      q.set('from', from);
+      q.set('to', to);
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
@@ -299,39 +386,6 @@ document.addEventListener('alpine:init', () => {
         this.drawerSort.column = column;
         this.drawerSort.direction = 'desc';
       }
-    },
-
-    applyDashPeriod(shouldLoad = true) {
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      let from;
-      switch (this.dashFilters.period) {
-        case 'year': {
-          from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
-        case 'month': {
-          from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
-        case 'week': {
-          from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString().slice(0, 10);
-          break;
-        }
-        default: {
-          from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
-      }
-      this.dashFilters.from = from;
-      this.dashFilters.to = today;
-      if (shouldLoad) this.loadDashboard();
-    },
-
-    resetDashFilters() {
-      this.dashFilters = { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' };
-      this.groupBy = 'month';
-      this.applyDashPeriod();
     },
 
     toggleCategoryDropdown() {

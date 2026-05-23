@@ -636,16 +636,69 @@ button.small {
 /* ---------- Dashboard Filters ---------- */
 .dashboard-filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  flex-direction: column;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
 }
 
-.dashboard-filters input,
-.dashboard-filters select {
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.filter-row-dates input[type="date"] {
   margin-bottom: 0;
-  flex: 1 1 120px;
+  flex: 0 1 150px;
+}
+
+.period-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.period-radios label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.period-radios label:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.period-radios label.active {
+  background: var(--accent-primary-dim);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.period-radios input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.filter-row-others select,
+.filter-row-others button {
+  margin-bottom: 0;
+}
+
+.filter-row-others select {
+  flex: 1 1 140px;
 }
 
 /* ---------- Multi-select Dropdown ---------- */

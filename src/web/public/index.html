@@ -32,40 +32,62 @@
         <div>
           <!-- Dashboard Filters -->
           <div class="dashboard-filters">
-            <select x-model="dashFilters.period" @change="applyDashPeriod()">
-              <option value="year">За год</option>
-              <option value="3months">За три месяца</option>
-              <option value="month">За месяц</option>
-              <option value="week">За неделю</option>
-            </select>
-            <input type="date" x-model="dashFilters.from" @change="loadDashboard()" placeholder="От">
-            <input type="date" x-model="dashFilters.to" @change="loadDashboard()" placeholder="До">
-            <select x-model="dashFilters.accountId" @change="loadDashboard()">
-              <option value="">Все счета</option>
-              <template x-for="acc in accounts" :key="acc.id">
-                <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
-              </template>
-            </select>
-            <select x-model="dashFilters.txType" @change="loadDashboard()">
-              <option value="all">Все операции</option>
-              <option value="income">Только доходы</option>
-              <option value="expense">Только расходы</option>
-            </select>
-            <div class="multi-select-wrap">
-              <button type="button" class="secondary outline" @click="toggleCategoryDropdown()">
-                <span x-text="dashFilters.categoryIds.length ? `${dashFilters.categoryIds.length} категорий` : 'Все категории'"></span>
-              </button>
-              <div class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
-                <template x-for="cat in categories" :key="cat.id">
-                  <label class="multi-select-item">
-                    <input type="checkbox" :value="cat.id" x-model="dashFilters.categoryIds" @change="loadDashboard()">
-                    <span class="color-swatch small" :style="'background-color: ' + (cat.color || '#cccccc')"></span>
-                    <span x-text="cat.name"></span>
-                  </label>
-                </template>
+            <!-- Row 1: Date inputs + Period radios -->
+            <div class="filter-row filter-row-dates">
+              <input type="date" x-model="dashFilters.from" @change="onDashDateChange()" placeholder="От">
+              <input type="date" x-model="dashFilters.to" @change="onDashDateChange()" placeholder="До">
+              <div class="period-radios" role="group">
+                <label :class="{ 'active': dashFilters.period === 'week' }">
+                  <input type="radio" value="week" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>Неделя</span>
+                </label>
+                <label :class="{ 'active': dashFilters.period === 'month' }">
+                  <input type="radio" value="month" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>Месяц</span>
+                </label>
+                <label :class="{ 'active': dashFilters.period === '3months' }">
+                  <input type="radio" value="3months" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>3 мес</span>
+                </label>
+                <label :class="{ 'active': dashFilters.period === 'year' }">
+                  <input type="radio" value="year" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>Год</span>
+                </label>
+                <label :class="{ 'active': dashFilters.period === 'all' }">
+                  <input type="radio" value="all" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>Всё время</span>
+                </label>
+                <label :class="{ 'active': dashFilters.period === 'custom' }">
+                  <input type="radio" value="custom" x-model="dashFilters.period" @change="applyDashPeriod()">
+                  <span>Свой</span>
+                </label>
               </div>
             </div>
-            <button class="secondary outline" @click="resetDashFilters()">Сбросить</button>
+
+            <!-- Row 2: Other filters -->
+            <div class="filter-row filter-row-others">
+              <select x-model="dashFilters.accountId" @change="loadDashboard()">
+                <option value="">Все счета</option>
+                <template x-for="acc in accounts" :key="acc.id">
+                  <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+                </template>
+              </select>
+              <div class="multi-select-wrap">
+                <button type="button" class="secondary outline" @click="toggleCategoryDropdown()">
+                  <span x-text="dashFilters.categoryIds.length ? `${dashFilters.categoryIds.length} категорий` : 'Все категории'"></span>
+                </button>
+                <div class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
+                  <template x-for="cat in categories" :key="cat.id">
+                    <label class="multi-select-item">
+                      <input type="checkbox" :value="cat.id" x-model="dashFilters.categoryIds" @change="loadDashboard()">
+                      <span class="color-swatch small" :style="'background-color: ' + (cat.color || '#cccccc')"></span>
+                      <span x-text="cat.name"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+              <button class="secondary outline" @click="resetDashFilters()">Сбросить</button>
+            </div>
           </div>
 
           <!-- KPI Cards -->
