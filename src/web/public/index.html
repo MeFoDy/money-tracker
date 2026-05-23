@@ -27,10 +27,10 @@
         <li class="brand"><span class="logo">◈</span> <strong>Money Tracker</strong></li>
       </ul>
       <ul>
-        <li><a href="#" @click.prevent="page='dashboard'" :class="{ 'active': page==='dashboard' }">Сводка</a></li>
-        <li><a href="#" @click.prevent="page='transactions'" :class="{ 'active': page==='transactions' }">Транзакции</a></li>
-        <li><a href="#" @click.prevent="page='categories'" :class="{ 'active': page==='categories' }">Категории</a></li>
-        <li><a href="#" @click.prevent="page='upload'" :class="{ 'active': page==='upload' }">Загрузить</a></li>
+        <li><a href="?page=dashboard" @click.prevent="navigateTo('dashboard')" :class="{ 'active': page==='dashboard' }">Сводка</a></li>
+        <li><a href="?page=transactions" @click.prevent="navigateTo('transactions')" :class="{ 'active': page==='transactions' }">Транзакции</a></li>
+        <li><a href="?page=categories" @click.prevent="navigateTo('categories')" :class="{ 'active': page==='categories' }">Категории</a></li>
+        <li><a href="?page=upload" @click.prevent="navigateTo('upload')" :class="{ 'active': page==='upload' }">Загрузить</a></li>
       </ul>
     </nav>
 

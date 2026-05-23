@@ -45,6 +45,7 @@ document.addEventListener('alpine:init', () => {
       isLoading: false,
 
     async initApp() {
+      this.loadPageFromUrl();
       await this.loadAccounts();
       await this.loadCategories();
       this.loadDashFiltersFromUrl();
@@ -58,6 +59,32 @@ document.addEventListener('alpine:init', () => {
       });
       if (this.page === 'dashboard') await this.loadDashboard();
       if (this.page === 'transactions') await this.loadTransactions();
+      globalThis.addEventListener('popstate', () => {
+        this.loadPageFromUrl();
+      });
+    },
+
+    navigateTo(page) {
+      if (this.page === page) return;
+      this.page = page;
+      const url = new URL(globalThis.location.href);
+      if (page !== 'dashboard') {
+        const dashKeys = ['period', 'from', 'to', 'accountId', 'txType', 'categoryIds', 'groupBy'];
+        for (const key of dashKeys) {
+          url.searchParams.delete(key);
+        }
+      }
+      url.searchParams.set('page', page);
+      globalThis.history.pushState({}, '', url);
+    },
+
+    loadPageFromUrl() {
+      const url = new URL(globalThis.location.href);
+      const page = url.searchParams.get('page');
+      const allowed = ['dashboard', 'transactions', 'categories', 'upload'];
+      if (page && allowed.includes(page)) {
+        this.page = page;
+      }
     },
 
     async api(path, opts = {}) {
