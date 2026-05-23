@@ -58,7 +58,10 @@ document.addEventListener('alpine:init', () => {
         }
       });
       if (this.page === 'dashboard') await this.loadDashboard();
-      if (this.page === 'transactions') await this.loadTransactions();
+      if (this.page === 'transactions') {
+        this.loadFiltersFromUrl();
+        await this.loadTransactions();
+      }
       globalThis.addEventListener('popstate', () => {
         this.loadPageFromUrl();
       });
@@ -71,6 +74,12 @@ document.addEventListener('alpine:init', () => {
       if (page !== 'dashboard') {
         const dashKeys = ['period', 'from', 'to', 'accountId', 'txType', 'categoryIds', 'groupBy'];
         for (const key of dashKeys) {
+          url.searchParams.delete(key);
+        }
+      }
+      if (page !== 'transactions') {
+        const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
+        for (const key of txKeys) {
           url.searchParams.delete(key);
         }
       }
@@ -149,6 +158,33 @@ document.addEventListener('alpine:init', () => {
       if (cids) this.dashFilters.categoryIds = cids.split(',').map(Number);
       const gb = url.searchParams.get('groupBy');
       if (gb) this.groupBy = gb;
+    },
+
+    loadFiltersFromUrl() {
+      const url = new URL(globalThis.location.href);
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+      const accountId = url.searchParams.get('accountId');
+      const categoryId = url.searchParams.get('categoryId');
+      const search = url.searchParams.get('search');
+      if (from) this.filters.from = from;
+      if (to) this.filters.to = to;
+      if (accountId !== null) this.filters.accountId = accountId;
+      if (categoryId !== null) this.filters.categoryId = categoryId;
+      if (search !== null) this.filters.search = search;
+    },
+
+    syncFiltersToUrl() {
+      const url = new URL(globalThis.location.href);
+      const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
+      for (const key of txKeys) {
+        if (this.filters[key]) {
+          url.searchParams.set(key, this.filters[key]);
+        } else {
+          url.searchParams.delete(key);
+        }
+      }
+      globalThis.history.replaceState({}, '', url);
     },
 
     onDashDateChange() {
@@ -443,36 +479,56 @@ document.addEventListener('alpine:init', () => {
       chartInstances = {};
     },
 
-    async loadTransactions() {
-      this._abortControllers.transactions?.abort();
-      const controller = new AbortController();
-      this._abortControllers.transactions = controller;
-      // default to last 3 months if no date range set
-      const now = new Date();
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      const from = this.filters.from || threeMonthsAgo.toISOString().slice(0, 10);
-      const to = this.filters.to || now.toISOString().slice(0, 10);
+      get periodLabel() {
+        if (this.filters.from && this.filters.to) {
+          return `${this.formatDate(this.filters.from)} — ${this.formatDate(this.filters.to)}`;
+        }
+        return '(период)';
+      },
 
-      const q = new URLSearchParams();
-      q.set('from', from);
-      q.set('to', to);
-      if (this.filters.accountId) q.set('accountId', this.filters.accountId);
-      if (this.filters.categoryId !== '') q.set('categoryId', this.filters.categoryId);
-      if (this.filters.search) q.set('search', this.filters.search);
-      q.set('limit', this.transactions.limit);
-      q.set('offset', this.transactions.offset);
-      try {
-        this.transactions = await this.api('/transactions?' + q.toString(), { signal: controller.signal });
-        this.selectedIds = [];
-        this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`, { signal: controller.signal });
-      } catch (error) {
-        if (error.name !== 'AbortError') throw error;
-      }
-    },
+      async loadTransactions() {
+        this._abortControllers.transactions?.abort();
+        const controller = new AbortController();
+        this._abortControllers.transactions = controller;
+        this.isLoading = true;
+
+        const now = new Date();
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        if (!this.filters.from) this.filters.from = threeMonthsAgo.toISOString().slice(0, 10);
+        if (!this.filters.to) this.filters.to = now.toISOString().slice(0, 10);
+
+        const from = this.filters.from;
+        const to = this.filters.to;
+
+        const q = new URLSearchParams();
+        q.set('from', from);
+        q.set('to', to);
+        if (this.filters.accountId) q.set('accountId', this.filters.accountId);
+        if (this.filters.categoryId !== '') q.set('categoryId', this.filters.categoryId);
+        if (this.filters.search) q.set('search', this.filters.search);
+        q.set('limit', this.transactions.limit);
+        q.set('offset', this.transactions.offset);
+        try {
+          this.transactions = await this.api('/transactions?' + q.toString(), { signal: controller.signal });
+          this.selectedIds = [];
+          this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`, { signal: controller.signal });
+          this.syncFiltersToUrl();
+        } catch (error) {
+          if (error.name !== 'AbortError') throw error;
+        } finally {
+          this.isLoading = false;
+        }
+      },
 
     resetFilters() {
       this.filters = { from: '', to: '', accountId: '', categoryId: '', search: '' };
       this.transactions.offset = 0;
+      const url = new URL(globalThis.location.href);
+      const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
+      for (const key of txKeys) {
+        url.searchParams.delete(key);
+      }
+      globalThis.history.replaceState({}, '', url);
       this.loadTransactions();
     },
 

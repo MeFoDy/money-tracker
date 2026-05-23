@@ -194,19 +194,19 @@
           <div class="grid summary-cards">
             <article class="card-glow income-border">
               <header>
-                <h4>Доходы (период)</h4>
+                <h4 x-text="`Доходы ${periodLabel}`"></h4>
               </header>
               <p class="big income" x-text="formatMoney(periodStats.income)"></p>
             </article>
             <article class="card-glow expense-border">
               <header>
-                <h4>Расходы (период)</h4>
+                <h4 x-text="`Расходы ${periodLabel}`"></h4>
               </header>
               <p class="big expense" x-text="formatMoney(periodStats.expense)"></p>
             </article>
             <article class="card-glow">
               <header>
-                <h4>Прибыль (период)</h4>
+                <h4 x-text="`Прибыль ${periodLabel}`"></h4>
               </header>
               <p class="big" x-text="formatMoney((periodStats.income || 0) - (periodStats.expense || 0))"></p>
             </article>
