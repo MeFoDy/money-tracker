@@ -6,7 +6,7 @@ function nextDay(dateStr) {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
 }
 
-function buildWhere({ from, to, accountId, type, categoryId, categoryIds, isPending = false, noAlias = false } = {}) {
+function buildWhere({ from, to, accountId, type, categoryId, categoryIds, search, isPending = false, noAlias = false } = {}) {
   const a = noAlias ? '' : 't.';
   const conditions = [];
   const params = [];
@@ -23,6 +23,7 @@ function buildWhere({ from, to, accountId, type, categoryId, categoryIds, isPend
     if (categoryId === null) conditions.push(`${a}category_id IS NULL`);
     else { conditions.push(`${a}category_id = ?`); params.push(categoryId); }
   }
+  if (search) { conditions.push(`${a}description LIKE ?`); params.push(`%${search}%`); }
   conditions.push(`${a}is_pending = ?`); params.push(isPending ? 1 : 0);
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -266,8 +267,8 @@ export function getSummaryStats() {
 /**
  * @returns {{income: number, expense: number}}
  */
-export function getPeriodSummary({ from, to, accountId } = {}) {
-  const { where, params } = buildWhere({ from, to, accountId });
+export function getPeriodSummary({ from, to, accountId, categoryId, search } = {}) {
+  const { where, params } = buildWhere({ from, to, accountId, categoryId, search });
   const sql = `
     SELECT
       SUM(CASE WHEN t.tx_type = 'income' THEN COALESCE(t.amount_byn, t.amount) ELSE 0 END) AS income,

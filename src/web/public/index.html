@@ -55,7 +55,7 @@
                   <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
                 </template>
               </select>
-              <div class="multi-select-wrap">
+              <div class="multi-select-wrap" @click.window="if (!$event.target.closest('.multi-select-wrap')) categoryDropdownOpen = false">
                 <button type="button" @click="toggleCategoryDropdown()" :aria-expanded="categoryDropdownOpen" aria-haspopup="true" aria-controls="category-dropdown">
                   <span x-text="dashFilters.categoryIds.length ? `Категорий: ${dashFilters.categoryIds.length}` : 'Все категории'"></span>
                 </button>
@@ -185,24 +185,24 @@
 
       <!-- Transactions -->
       <template x-if="page === 'transactions'">
-        <div>
+        <div @click.window="if (!$event.target.closest('.tx-actions-menu')) txMenuOpen = null">
           <h3 class="page-title">Транзакции</h3>
           <div class="grid summary-cards">
             <article class="card-glow income-border">
               <header>
-                <h4 x-text="`Доходы ${periodLabel}`"></h4>
+                <h4>Доходы</h4>
               </header>
               <p class="big income" x-text="formatMoney(periodStats.income)"></p>
             </article>
             <article class="card-glow expense-border">
               <header>
-                <h4 x-text="`Расходы ${periodLabel}`"></h4>
+                <h4>Расходы</h4>
               </header>
               <p class="big expense" x-text="formatMoney(periodStats.expense)"></p>
             </article>
             <article class="card-glow">
               <header>
-                <h4 x-text="`Прибыль ${periodLabel}`"></h4>
+                <h4>Прибыль</h4>
               </header>
               <p class="big" x-text="formatMoney((periodStats.income || 0) - (periodStats.expense || 0))"></p>
             </article>
@@ -223,7 +223,7 @@
                 <option :value="cat.id" x-text="cat.name"></option>
               </template>
             </select>
-            <input type="text" x-model.debounce.300ms="filters.search" @change="loadTransactions()" placeholder="Поиск по описанию...">
+            <input type="text" x-model="filters.search" @input.debounce.300ms="loadTransactions()" placeholder="Поиск по описанию...">
             <button class="secondary outline" @click="resetFilters()">Сбросить</button>
           </div>
 
@@ -270,7 +270,7 @@
                       </select>
                     </td>
                     <td class="actions-cell">
-                      <div class="tx-actions-menu" @click.outside="txMenuOpen = null">
+                      <div class="tx-actions-menu">
                         <button class="secondary outline square" @click="txMenuOpen = txMenuOpen === tx.id ? null : tx.id" aria-label="Действия">⋮</button>
                         <div class="tx-actions-dropdown" :class="{ 'open': txMenuOpen === tx.id }">
                           <button type="button" @click="openRuleDrawerFromTransaction(tx); txMenuOpen = null">Создать правило</button>
@@ -281,6 +281,7 @@
                 </template>
               </tbody>
             </table>
+            </div>
           </figure>
 
           <div class="pagination">
@@ -305,6 +306,7 @@
             <button @click="addCategory()">Добавить</button>
           </div>
           <figure class="data-table-wrap category-table-wrap">
+            <div class="data-table-scroll">
             <table role="grid" class="data-table category-table">
               <thead>
                 <tr>
@@ -329,6 +331,7 @@
                 </template>
               </tbody>
             </table>
+            </div>
           </figure>
 
           <h4 class="page-title">Правила авто-категоризации</h4>
@@ -337,6 +340,7 @@
           </div>
 
           <figure class="data-table-wrap">
+            <div class="data-table-scroll">
             <table role="grid" class="data-table">
               <thead>
                 <tr>
@@ -379,6 +383,7 @@
                 </template>
               </tbody>
             </table>
+            </div>
           </figure>
         </div>
       </template>
@@ -410,8 +415,9 @@
                 </div>
               </article>
 
-              <figure class="data-table-wrap">
-                <table role="grid" class="data-table">
+          <figure class="data-table-wrap">
+            <div class="data-table-scroll">
+            <table role="grid" class="data-table">
                   <thead>
                     <tr>
                       <th>Дата</th>
@@ -443,6 +449,7 @@
                     </template>
                   </tbody>
                 </table>
+              </div>
               </figure>
 
               <div class="preview-actions">
@@ -545,6 +552,7 @@
           <input type="text" x-model.debounce.300ms="drawerSearch" placeholder="Поиск по описанию..." class="drawer-search">
         </div>
         <figure class="data-table-wrap">
+          <div class="data-table-scroll">
           <table role="grid" class="data-table drawer-table">
             <thead>
               <tr>
@@ -579,6 +587,7 @@
               </template>
             </tbody>
           </table>
+          </div>
         </figure>
         <template x-if="sortedDrawerTransactions.length === 0">
           <p class="empty-state">Нет транзакций</p>

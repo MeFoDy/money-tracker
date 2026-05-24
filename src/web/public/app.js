@@ -665,10 +665,18 @@ document.addEventListener('alpine:init', () => {
         if (this.filters.search) q.set('search', this.filters.search);
         q.set('limit', this.transactions.limit);
         q.set('offset', this.transactions.offset);
+
+        const sq = new URLSearchParams();
+        sq.set('from', from);
+        sq.set('to', to);
+        if (this.filters.accountId) sq.set('accountId', this.filters.accountId);
+        if (this.filters.categoryId !== '') sq.set('categoryId', this.filters.categoryId);
+        if (this.filters.search) sq.set('search', this.filters.search);
+
         try {
           this.transactions = await this.api('/transactions?' + q.toString(), { signal: controller.signal });
           this.selectedIds = [];
-          this.periodStats = await this.api(`/analytics/period-summary?from=${from}&to=${to}`, { signal: controller.signal });
+          this.periodStats = await this.api('/analytics/period-summary?' + sq.toString(), { signal: controller.signal });
           this.syncFiltersToUrl();
         } catch (error) {
           if (error.name !== 'AbortError') throw error;

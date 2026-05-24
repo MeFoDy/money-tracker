@@ -31,8 +31,9 @@ export default async function analyticsRoutes(app) {
   });
 
   app.get('/period-summary', async (request) => {
-    const { from, to, accountId } = request.query;
-    return getPeriodSummary({ from, to, accountId });
+    const { from, to, accountId, categoryId, search } = request.query;
+    const catId = categoryId === 'null' ? null : (categoryId === undefined ? undefined : Number(categoryId));
+    return getPeriodSummary({ from, to, accountId, categoryId: catId, search });
   });
 
   app.get('/spending-by-category', async (request) => {

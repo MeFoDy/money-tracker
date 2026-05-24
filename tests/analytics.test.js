@@ -11,7 +11,8 @@ import {
   getUncategorizedCount,
   getKpiMetrics,
   getIncomeExpenseOverTime,
-  getTransactionDateRange
+  getTransactionDateRange,
+  getPeriodSummary
 } from '../src/core/analytics.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
 
@@ -118,5 +119,18 @@ describe('Analytics', () => {
     assert.equal(stats.income, summary.totalIncome, 'income should match total income');
     assert.equal(stats.expense, summary.totalExpense, 'expense should match total expense');
     assert.equal(stats.balance, summary.totalIncome - summary.totalExpense, 'balance should match');
+  });
+
+  test('getPeriodSummary respects categoryId and search filters', () => {
+    const all = getPeriodSummary();
+    assert.ok((all.income || 0) > 0 || (all.expense || 0) > 0, 'there should be some transactions');
+
+    const uncategorized = getPeriodSummary({ categoryId: null });
+    assert.equal(typeof uncategorized.income, 'number');
+    assert.equal(typeof uncategorized.expense, 'number');
+
+    const bySearch = getPeriodSummary({ search: 'XYZ_NONEXISTENT_12345' });
+    assert.equal(bySearch.income || 0, 0, 'nonexistent search should yield zero income');
+    assert.equal(bySearch.expense || 0, 0, 'nonexistent search should yield zero expense');
   });
 });
