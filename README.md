@@ -25,8 +25,8 @@
 - **Импорт выписок** — загрузка CSV банковской выписки в кодировке `windows-1251` через веб-интерфейс (drag & drop) или CLI.
 - **Дедупликация** — одинаковые операции из разных загрузок не дублируются в базе (SHA-256 хеш по составному ключу).
 - **Pending-транзакции** — поддержка заблокированных (pending) и завершённых (completed) операций; pending автоматически обновляются при появлении completed-дубликата.
-- **Категоризация** — ручная разметка категорий, bulk-операции, правила авто-категоризации по подстроке в описании.
-- **Аналитика** — дашборд с интерактивными графиками (расходы по категориям, баланс во времени), фильтры по датам, счетам и категориям.
+- **Категоризация** — ручная разметка категорий и bulk-операции назначения категорий.
+- **Аналитика** — дашборд с KPI-карточками, интерактивными графиками (расходы по категориям, доходы/расходы по времени, тепловая карта активности, сравнение периодов), фильтры по датам, счетам и категориям.
 - **Два entrypoint** — полноценный веб-сервер для пользователей и автономный CLI для ботов/скриптов.
 - **Локальные ассеты** — фронтенд работает полностью офлайн, все зависимости (Alpine.js, Chart.js, Pico CSS) раздаются локально.
 
@@ -67,16 +67,15 @@ money-tracker/
 │   │   ├── parser.js           # Парсинг CSV-выписки (windows-1251)
 │   │   ├── importer.js         # Импорт с дедупликацией
 │   │   ├── repository.js       # CRUD + фильтрация
-│   │   ├── categorizer.js      # Правила авто-категоризации
 │   │   ├── analytics.js        # Агрегации и отчёты
-│   │   └── utils.js            # Утилиты
+│   │   └── utils.js            # computeHash, cleanAmount, parseDate
 │   ├── web/
 │   │   ├── server.js           # Fastify: static, multipart, SPA fallback
 │   │   ├── routes/
 │   │   │   ├── index.js        # Регистрация роутов
 │   │   │   ├── upload.js       # POST /api/upload
 │   │   │   ├── transactions.js # GET /api/transactions, PATCH /api/transactions/bulk
-│   │   │   ├── categories.js   # CRUD категорий + правила
+│   │   │   ├── categories.js   # CRUD категорий
 │   │   │   ├── accounts.js     # GET /api/accounts
 │   │   │   └── analytics.js    # GET /api/analytics/*
 │   │   └── public/             # SPA статика
@@ -92,7 +91,8 @@ money-tracker/
     ├── parser.test.js
     ├── importer.test.js
     ├── analytics.test.js
-    └── api.test.js
+    ├── api.test.js
+    └── utils.test.js
 ```
 
 ---
@@ -119,7 +119,7 @@ pnpm run copy-frontend-deps
 pnpm run web
 ```
 
-Сервер слушает `0.0.0.0:3000` (или порт из `PORT`).
+Сервер слушает `127.0.0.1:3000` (или порт из `PORT`).
 - API доступно по `/api/*`
 - SPA раздаётся из `src/web/public/`
 - Fallback на `index.html` для клиентского роутинга
@@ -157,22 +157,29 @@ CLI всегда выводит машиночитаемый JSON в `stdout` и
 - `PATCH /api/transactions/bulk` — body `{ ids: number[], categoryId: number|null }`. Массовое обновление категории.
 
 ### Categories
-- `GET /api/categories` — `{ categories, rules }`
+- `GET /api/categories` — `{ categories }`
 - `POST /api/categories` — body `{ name, color? }`
 - `PUT /api/categories/:id` — body `{ name, color? }`
 - `DELETE /api/categories/:id`
-- `POST /api/categories/rules` — body `{ categoryId, pattern, priority? }`
 
 ### Accounts
 - `GET /api/accounts`
 
 ### Analytics
+
+Все аналитические эндпоинты поддерживают общие фильтры: `from`, `to`, `accountId`. Денежные значения используют `amount_byn` при наличии, иначе `amount`.
+
 - `GET /api/analytics/summary` — `{ totalTx, totalIncome, totalExpense, uncategorized }`
-- `GET /api/analytics/spending-by-category?type=expense` — расходы/доходы по категориям
-- `GET /api/analytics/monthly-summary` — помесячная сводка
-- `GET /api/analytics/top-counterparties?limit=10` — топ контрагентов
-- `GET /api/analytics/balance-over-time` — кумулятивный баланс по дням
-- `GET /api/analytics/uncategorized-count` — количество некатегоризированных
+- `GET /api/analytics/kpi` — KPI текущего периода + дельта к предыдущему равному периоду: `{ balance, income, incomeDelta, expense, expenseDelta, topCategory, transactionCount, prevPeriod }`
+- `GET /api/analytics/income-expense-over-time?groupBy=day|week|month` — `[{ period, income, expense, cumulative_balance }]`
+- `GET /api/analytics/period-summary` — `{ income, expense }` за указанный период
+- `GET /api/analytics/spending-by-category?type=expense|income` — `[{ category_id, name, color, total }]`
+- `GET /api/analytics/period-comparison` — сравнение текущего и предыдущего периода по категориям с `delta` и `deltaPercent`
+- `GET /api/analytics/heatmap?mode=expense|income|count` — календарная тепловая карта активности по дням
+- `GET /api/analytics/monthly-summary` — `[{ month, income, expense }]`
+- `GET /api/analytics/top-counterparties?limit=10` — `[{ description, count, total }]`
+- `GET /api/analytics/balance-over-time` — кумулятивный баланс по дням: `[{ date, balance }]`
+- `GET /api/analytics/uncategorized-count` — количество некатегоризированных транзакций
 
 ---
 
@@ -205,13 +212,12 @@ SHA-256(date|amount|currency|description|account_id)
 SQLite с WAL-режимом. Схема включает:
 - `accounts` — счета (автосоздание при импорте);
 - `categories` — пользовательские категории;
-- `category_rules` — правила авто-категоризации;
-- `transactions` — основные операции;
-- `pending_transactions` — заблокированные суммы;
+- `transactions` — основные операции (`is_pending=1` для заблокированных);
+- `pending_transactions` — дополнительная таблица для pending-записей;
 - `uploads` — лог загрузок.
 
 ### Фронтенд
-Легковесное SPA на Alpine.js без сборщика. Chart.js отрисовывает doughnut (расходы по категориям) и line (баланс во времени). Все стили и скрипты — локальные.
+Легковесное SPA на Alpine.js без сборщика. Страницы: дашборд, транзакции, категории, загрузка. Chart.js отрисовывает doughnut (расходы по категориям), line (доходы/расходы по времени), bar (сравнение периодов). Тепловая карта реализована через чистый DOM. Состояние фильтров синхронизируется с URL query-параметрами. Все стили и скрипты — локальные.
 
 ---
 
@@ -225,7 +231,8 @@ pnpm test
 - `parser.test.js` — парсинг sample CSV, мультивалютность, pending;
 - `importer.test.js` — импорт, дедупликация, pending-флаг;
 - `analytics.test.js` — агрегации, сортировка, кумулятивный баланс;
-- `api.test.js` — интеграционные тесты через `fastify.inject()`.
+- `api.test.js` — интеграционные тесты через `fastify.inject()`;
+- `utils.test.js` — юнит-тесты `formatDate()`.
 
 Тесты используют изолированные временные БД (`tests/_helper.js`).
 

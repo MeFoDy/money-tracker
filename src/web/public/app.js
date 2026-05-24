@@ -252,7 +252,8 @@ document.addEventListener('alpine:init', () => {
       this.destroyCharts();
       if (ie.length > 0) {
         chartInstances.ie = renderIncomeExpenseLine('chart-income-expense', ie, {
-          onClick: (index, item) => this.openDrawerForPeriod(item)
+          onClick: (index, item) => this.openDrawerForPeriod(item),
+          formatLabel: (period) => this.formatPeriodLabel(period, this.groupBy)
         });
         this.applyLineVisibility();
       }
@@ -508,6 +509,12 @@ document.addEventListener('alpine:init', () => {
       return { from: period, to: period };
     },
 
+    formatPeriodLabel(period, groupBy) {
+      if (groupBy === 'day') return fmtDate(period);
+      const { from, to } = this.periodToDateRange(period, groupBy);
+      return `${fmtDate(from)} — ${fmtDate(to)}`;
+    },
+
     async openDrawerForPeriod(item) {
       const { from, to } = this.periodToDateRange(item.period, this.groupBy);
       const q = new URLSearchParams();
@@ -516,7 +523,7 @@ document.addEventListener('alpine:init', () => {
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
-      const periodLabel = this.groupBy === 'day' ? fmtDate(item.period) : item.period;
+      const periodLabel = this.formatPeriodLabel(item.period, this.groupBy);
       this.drawer = { open: true, title: `Транзакции за ${periodLabel}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
       this.drawerSearch = '';

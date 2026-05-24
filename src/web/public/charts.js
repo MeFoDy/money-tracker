@@ -67,10 +67,10 @@ export function renderDoughnut(canvasId, labels, data, colors, categoryIds, { on
       },
       plugins: {
         legend: {
-          position: 'right',
+          position: 'left',
           labels: {
             color: '#8b95a8',
-            font: { family: "'SF Mono', 'Fira Code', monospace", size: 12 },
+            font: { family: "'SF Mono', 'Fira Code', monospace", size: 10 },
             padding: 16,
             usePointStyle: true,
             pointStyle: 'circle',
@@ -99,7 +99,7 @@ export function renderDoughnut(canvasId, labels, data, colors, categoryIds, { on
   });
 }
 
-export function renderIncomeExpenseLine(canvasId, data, { onClick } = {}) {
+export function renderIncomeExpenseLine(canvasId, data, { onClick, formatLabel } = {}) {
   const ctx = document.querySelector(`#${canvasId}`).getContext('2d');
   const labels = data.map(d => d.period);
   const incomeData = data.map(d => d.income);
@@ -148,7 +148,7 @@ export function renderIncomeExpenseLine(canvasId, data, { onClick } = {}) {
           pointHoverRadius: 6
         },
         {
-          label: 'Баланс',
+          label: 'Прибыль',
           labelKey: 'balance',
           data: balanceData,
           fill: false,
@@ -188,6 +188,10 @@ export function renderIncomeExpenseLine(canvasId, data, { onClick } = {}) {
         tooltip: {
           ...commonTooltip,
           callbacks: {
+            title: (items) => {
+              const raw = items[0]?.label;
+              return formatLabel ? formatLabel(raw) : raw;
+            },
             label: (ctx) => {
               const v = ctx.raw;
               return ` ${ctx.dataset.label}: ${formatCurrency(v)}`;
@@ -220,6 +224,7 @@ export function renderIncomeExpenseLine(canvasId, data, { onClick } = {}) {
 }
 
 export function renderPeriodComparisonBar(canvasId, data) {
+  data.sort((a, b) => b.current - a.current);
   const ctx = document.querySelector(`#${canvasId}`).getContext('2d');
   const labels = data.map(d => d.name);
   const currentData = data.map(d => d.current);
