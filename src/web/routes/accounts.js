@@ -1,8 +1,12 @@
-import { getAllAccounts, updateAccountComment } from '../../domain/accounts/index.js';
+import { getAllAccounts, updateAccountComment, getDistinctCurrencies } from '../../domain/accounts/index.js';
 
 export default async function accountRoutes(app) {
   app.get('/', async () => {
     return getAllAccounts();
+  });
+
+  app.get('/currencies', async () => {
+    return { currencies: getDistinctCurrencies() };
   });
 
   app.patch('/:id', async (request, reply) => {

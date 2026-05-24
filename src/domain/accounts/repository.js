@@ -25,3 +25,15 @@ export function updateAccountComment(id, comment) {
     .prepare('UPDATE accounts SET comment = ? WHERE id = ? RETURNING *')
     .get(comment, id);
 }
+
+export function getDistinctCurrencies() {
+  return getDb()
+    .prepare(`
+      SELECT currency FROM accounts WHERE currency IS NOT NULL
+      UNION
+      SELECT currency FROM transactions WHERE currency IS NOT NULL
+      ORDER BY currency
+    `)
+    .all()
+    .map((row) => row.currency);
+}

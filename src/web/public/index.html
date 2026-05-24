@@ -574,7 +574,12 @@
           </p>
           <p>
             <span>в валюте</span>
-            <input type="text" x-model="ruleDrawer.rule.currency" placeholder="Валюта (например, BYN)">
+            <select x-model="ruleDrawer.rule.currency">
+              <option value="">Любая валюта</option>
+              <template x-for="cur in currencies" :key="cur">
+                <option :value="cur" x-text="currencyLabel(cur)"></option>
+              </template>
+            </select>
           </p>
           <p>
             <span>Транзакция на счёте</span>

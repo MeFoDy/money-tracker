@@ -37,6 +37,7 @@ document.addEventListener('alpine:init', () => {
       uploadPreview: { transactions: [], stats: {} },
       isPreviewMode: false,
       categoryRules: [],
+      currencies: [],
       ruleDrawer: { open: false, mode: 'create', rule: { id: null, categoryId: '', descriptionPattern: '', minAmount: '', maxAmount: '', accountId: '', currency: '', priority: 0, isActive: true } },
       txMenuOpen: null,
       drawer: { open: false, title: '', transactions: [] },
@@ -54,6 +55,7 @@ document.addEventListener('alpine:init', () => {
       this.loadPageFromUrl();
       await this.loadAccounts();
       await this.loadCategories();
+      await this.loadCurrencies();
       this.loadDashFiltersFromUrl();
       if (this.dashFilters.period === 'all') {
         if (!this.dashFilters.from || !this.dashFilters.to) {
@@ -903,6 +905,17 @@ document.addEventListener('alpine:init', () => {
     updatePreviewCategory(index, categoryId) {
       const tx = this.uploadPreview.transactions[index];
       if (tx) tx.finalCategoryId = categoryId === '' ? null : Number(categoryId);
+    },
+
+    async loadCurrencies() {
+      const data = await this.api('/accounts/currencies');
+      this.currencies = data.currencies;
+    },
+
+    currencyLabel(code) {
+      const symbols = { BYN: 'Br', RUB: '₽', USD: '$', EUR: '€', GBP: '£', CNY: '¥', JPY: '¥', CHF: '₣', PLN: 'zł', UAH: '₴', KZT: '₸' };
+      const symbol = symbols[String(code).toUpperCase()];
+      return symbol ? `${code} / ${symbol}` : code;
     },
 
     async loadCategoryRules() {
