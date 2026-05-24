@@ -19,3 +19,9 @@ export function getAccountByNumber(accountNumber) {
 export function getAllAccounts() {
   return getDb().prepare('SELECT * FROM accounts ORDER BY created_at DESC').all();
 }
+
+export function updateAccountComment(id, comment) {
+  return getDb()
+    .prepare('UPDATE accounts SET comment = ? WHERE id = ? RETURNING *')
+    .get(comment, id);
+}

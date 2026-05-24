@@ -88,6 +88,10 @@ const MIGRATIONS = [
 
   CREATE INDEX IF NOT EXISTS idx_rules_active ON category_rules(is_active);
   CREATE INDEX IF NOT EXISTS idx_rules_priority ON category_rules(priority DESC);
+  `,
+  // version 4 — добавляем комментарий к счёту
+  `
+  ALTER TABLE accounts ADD COLUMN comment TEXT;
   `
 ];
 

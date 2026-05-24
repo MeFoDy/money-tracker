@@ -30,6 +30,7 @@
         <li><a href="?page=dashboard" @click.prevent="navigateTo('dashboard')" :class="{ 'active': page==='dashboard' }">Сводка</a></li>
         <li><a href="?page=transactions" @click.prevent="navigateTo('transactions')" :class="{ 'active': page==='transactions' }">Транзакции</a></li>
         <li><a href="?page=categories" @click.prevent="navigateTo('categories')" :class="{ 'active': page==='categories' }">Категории</a></li>
+        <li><a href="?page=accounts" @click.prevent="navigateTo('accounts')" :class="{ 'active': page==='accounts' }">Счета</a></li>
         <li><a href="?page=upload" @click.prevent="navigateTo('upload')" :class="{ 'active': page==='upload' }">Загрузить</a></li>
       </ul>
     </nav>
@@ -52,7 +53,7 @@
               <select id="dash-account" x-model="dashFilters.accountId" @change="loadDashboard()">
                 <option value="">Все счета</option>
                 <template x-for="acc in accounts" :key="acc.id">
-                  <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+                  <option :value="acc.id" x-text="accLabel(acc)"></option>
                 </template>
               </select>
               <div class="multi-select-wrap" @click.window="if (!$event.target.closest('.multi-select-wrap')) categoryDropdownOpen = false">
@@ -213,7 +214,7 @@
             <select x-model="filters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = filters.accountId })" @change="loadTransactions()">
               <option value="">Все счета</option>
               <template x-for="acc in accounts" :key="acc.id">
-                <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+                <option :value="acc.id" x-text="accLabel(acc)"></option>
               </template>
             </select>
             <select x-model="filters.categoryId" x-effect="categories.length; $nextTick(() => { $el.value = filters.categoryId })" @change="loadTransactions()">
@@ -260,7 +261,15 @@
                     <td x-text="tx.description"></td>
                     <td :class="tx.is_pending ? 'pending' : tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                     <td x-text="tx.currency"></td>
-                    <td x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"></td>
+                    <td>
+                      <span
+                        class="account-chip"
+                        x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"
+                        @mouseenter="showAccTooltip($event, tx.account_id)"
+                        @mousemove="_positionTooltip($refs.accTooltip, $event)"
+                        @mouseleave="hideAccTooltip()"
+                      ></span>
+                    </td>
                     <td>
                       <select x-model="tx.category_id" @change="updateTxCategory(tx.id, $event.target.value)">
                         <option value="">—</option>
@@ -388,6 +397,67 @@
         </div>
       </template>
 
+      <!-- Accounts -->
+      <template x-if="page === 'accounts'">
+        <div>
+          <h3 class="page-title">Счета</h3>
+          <figure class="data-table-wrap">
+            <table role="grid" class="data-table accounts-table">
+              <thead>
+                <tr>
+                  <th>Номер счёта</th>
+                  <th>Название из выписки</th>
+                  <th>Валюта</th>
+                  <th>Комментарий</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="acc in accounts" :key="acc.id">
+                  <tr>
+                    <td x-text="acc.account_number"></td>
+                    <td x-text="acc.name || '—'"></td>
+                    <td x-text="acc.currency"></td>
+                    <td>
+                      <template x-if="accountEdit.id !== acc.id">
+                        <span
+                          class="account-comment-text"
+                          @click="startEditAccount(acc)"
+                          :title="acc.comment ? '' : 'Нажмите, чтобы добавить комментарий'"
+                          x-text="acc.comment || ''"
+                        ></span>
+                      </template>
+                      <template x-if="accountEdit.id === acc.id">
+                        <input
+                          type="text"
+                          class="account-comment-input"
+                          x-model="accountEdit.comment"
+                          placeholder="Комментарий..."
+                          @keydown.enter="saveAccountComment(acc)"
+                          @keydown.escape="cancelEditAccount()"
+                          x-init="$nextTick(() => $el.focus())"
+                        >
+                      </template>
+                    </td>
+                    <td class="actions-cell">
+                      <template x-if="accountEdit.id === acc.id">
+                        <span>
+                          <button class="outline small" @click="saveAccountComment(acc)">Сохранить</button>
+                          <button class="secondary outline small" @click="cancelEditAccount()">Отмена</button>
+                        </span>
+                      </template>
+                      <template x-if="accountEdit.id !== acc.id">
+                        <button class="secondary outline square small" @click="startEditAccount(acc)" title="Редактировать комментарий">✎</button>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </figure>
+        </div>
+      </template>
+
       <!-- Upload -->
       <template x-if="page === 'upload'">
         <div>
@@ -511,7 +581,7 @@
             <select x-model="ruleDrawer.rule.accountId">
               <option value="">Любой счёт</option>
               <template x-for="acc in accounts" :key="acc.id">
-                <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
+                <option :value="acc.id" x-text="accLabel(acc)"></option>
               </template>
             </select>
           </p>
@@ -539,6 +609,9 @@
         </div>
       </div>
     </aside>
+
+    <!-- Account tooltip -->
+    <div class="heatmap-tooltip" x-ref="accTooltip"></div>
 
     <!-- Drill-down Drawer -->
     <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()" aria-hidden="true"></div>

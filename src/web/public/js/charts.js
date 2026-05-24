@@ -223,7 +223,7 @@ export function renderIncomeExpenseLine(canvasId, data, { onClick, formatLabel }
   });
 }
 
-export function renderPeriodComparisonBar(canvasId, data) {
+export function renderPeriodComparisonBar(canvasId, data, { onClick } = {}) {
   data.sort((a, b) => b.current - a.current);
   const ctx = document.querySelector(`#${canvasId}`).getContext('2d');
   const labels = data.map(d => d.name);
@@ -254,6 +254,12 @@ export function renderPeriodComparisonBar(canvasId, data) {
     },
     options: {
       ...commonOptions,
+      onClick: (event, elements) => {
+        if (elements.length > 0 && onClick) {
+          const idx = elements[0].index;
+          onClick(idx, { name: data[idx].name, current: data[idx].current, category_id: data[idx].category_id ?? null });
+        }
+      },
       interaction: {
         intersect: false,
         mode: 'index'

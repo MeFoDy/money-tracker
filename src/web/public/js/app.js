@@ -48,6 +48,7 @@ document.addEventListener('alpine:init', () => {
       _abortControllers: {},
       formatDate: fmtDate,
       isLoading: false,
+      accountEdit: { id: null, comment: '' },
 
     async initApp() {
       this.loadPageFromUrl();
@@ -122,7 +123,7 @@ document.addEventListener('alpine:init', () => {
     loadPageFromUrl() {
       const url = new URL(globalThis.location.href);
       const page = url.searchParams.get('page');
-      const allowed = ['dashboard', 'transactions', 'categories', 'upload'];
+      const allowed = ['dashboard', 'transactions', 'categories', 'accounts', 'upload'];
       if (page && allowed.includes(page)) {
         this.page = page;
       }
@@ -302,7 +303,9 @@ document.addEventListener('alpine:init', () => {
         });
       }
       if (comparison.length > 0) {
-        chartInstances.comp = renderPeriodComparisonBar('chart-comparison', comparison);
+        chartInstances.comp = renderPeriodComparisonBar('chart-comparison', comparison, {
+          onClick: (index, item) => this.openDrawerForComparison(item)
+        });
       }
       if (heatmap.length > 0) {
         this.renderHeatmap(heatmap);
@@ -578,6 +581,21 @@ document.addEventListener('alpine:init', () => {
       this.drawerSearch = '';
     },
 
+    async openDrawerForComparison(item) {
+      const q = new URLSearchParams();
+      if (this.dashFilters.from) q.set('from', this.dashFilters.from);
+      if (this.dashFilters.to) q.set('to', this.dashFilters.to);
+      if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
+      if (item.category_id !== undefined && item.category_id !== null) q.set('categoryId', item.category_id);
+      else q.set('categoryId', 'null');
+      q.set('type', 'expense');
+      q.set('limit', '100');
+      const data = await this.api('/transactions?' + q.toString());
+      this.drawer = { open: true, title: `Транзакции: ${item.name}`, transactions: data.rows };
+      this.drawerSort = { column: 'tx_date', direction: 'desc' };
+      this.drawerSearch = '';
+    },
+
     async openDrawerForDay(date) {
       const q = new URLSearchParams();
       q.set('from', date);
@@ -777,6 +795,48 @@ document.addEventListener('alpine:init', () => {
     async loadAccounts() {
       this.accounts = await this.api('/accounts');
       this.accountMap = Object.fromEntries(this.accounts.map(a => [a.id, a]));
+    },
+
+    accLabel(acc) {
+      const base = acc.name || acc.account_number;
+      return acc.comment ? `${base} — ${acc.comment}` : base;
+    },
+
+    startEditAccount(acc) {
+      this.accountEdit = { id: acc.id, comment: acc.comment || '' };
+    },
+
+    cancelEditAccount() {
+      this.accountEdit = { id: null, comment: '' };
+    },
+
+    async saveAccountComment(acc) {
+      const comment = this.accountEdit.comment.trim() || null;
+      await this.api('/accounts/' + acc.id, {
+        method: 'PATCH',
+        body: JSON.stringify({ comment })
+      });
+      this.accountEdit = { id: null, comment: '' };
+      await this.loadAccounts();
+    },
+
+    showAccTooltip(event, accountId) {
+      const acc = this.accountMap[accountId];
+      if (!acc) return;
+      const tooltip = this.$refs.accTooltip;
+      if (!tooltip) return;
+      tooltip.innerHTML =
+        `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Счёт</span><span>${acc.account_number}</span></div>` +
+        (acc.name ? `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Название</span><span>${acc.name}</span></div>` : '') +
+        (acc.comment ? `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Комментарий</span><span class="heatmap-tooltip-value">${acc.comment}</span></div>` : '') +
+        `<div class="heatmap-tooltip-row"><span class="heatmap-tooltip-label">Валюта</span><span>${acc.currency}</span></div>`;
+      tooltip.classList.add('visible');
+      this._positionTooltip(tooltip, event);
+    },
+
+    hideAccTooltip() {
+      const tooltip = this.$refs.accTooltip;
+      if (tooltip) tooltip.classList.remove('visible');
     },
 
     async addCategory() {
