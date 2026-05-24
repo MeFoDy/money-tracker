@@ -10,7 +10,8 @@ import {
   getSummaryStats,
   getUncategorizedCount,
   getKpiMetrics,
-  getIncomeExpenseOverTime
+  getIncomeExpenseOverTime,
+  getTransactionDateRange
 } from '../src/core/analytics.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
 
@@ -100,5 +101,22 @@ describe('Analytics', () => {
       assert.equal(typeof r.expense, 'number');
       assert.equal(typeof r.cumulative_balance, 'number');
     });
+  });
+
+  test('getTransactionDateRange returns min and max dates', () => {
+    const range = getTransactionDateRange();
+    assert.ok(range.min, 'min date should be present');
+    assert.ok(range.max, 'max date should be present');
+    assert.ok(range.min <= range.max, 'min should not be after max');
+  });
+
+  test('getKpiMetrics with no dates uses full transaction range', () => {
+    const stats = getKpiMetrics();
+    assert.equal(typeof stats, 'object');
+    assert.ok(stats.transactionCount > 0);
+    const summary = getSummaryStats();
+    assert.equal(stats.income, summary.totalIncome, 'income should match total income');
+    assert.equal(stats.expense, summary.totalExpense, 'expense should match total expense');
+    assert.equal(stats.balance, summary.totalIncome - summary.totalExpense, 'balance should match');
   });
 });

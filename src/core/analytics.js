@@ -30,7 +30,8 @@ function buildWhere({ from, to, accountId, type, categoryId, categoryIds, isPend
 }
 
 function parseLocalDate(dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const datePart = dateStr.slice(0, 10);
+  const [year, month, day] = datePart.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
 
@@ -41,12 +42,20 @@ function formatLocalDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+export function getTransactionDateRange() {
+  const row = getDb().prepare(`SELECT DATE(MIN(tx_date)) AS min, DATE(MAX(tx_date)) AS max FROM transactions WHERE is_pending = 0`).get();
+  return { min: row.min || null, max: row.max || null };
+}
+
 function getPeriodDates(from, to) {
-  const now = new Date();
-  const defaultTo = formatLocalDate(now);
-  const defaultFrom = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 2, 1));
-  const currentFrom = from || defaultFrom;
-  const currentTo = to || defaultTo;
+  let currentFrom = from;
+  let currentTo = to;
+  if (!currentFrom || !currentTo) {
+    const range = getTransactionDateRange();
+    const now = new Date();
+    currentFrom = currentFrom || range.min || formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+    currentTo = currentTo || range.max || formatLocalDate(now);
+  }
   const fromDate = parseLocalDate(currentFrom);
   const toDate = parseLocalDate(currentTo);
   const durationMs = toDate.getTime() - fromDate.getTime();

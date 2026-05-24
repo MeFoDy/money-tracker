@@ -22,6 +22,8 @@
   --income-dim: rgba(0, 212, 170, 0.15);
   --expense: #f43f5e;
   --expense-dim: rgba(244, 63, 94, 0.15);
+  --pending: #0ea5e9;
+  --pending-dim: rgba(14, 165, 233, 0.15);
   --warn: #f59e0b;
   --warn-dim: rgba(245, 158, 11, 0.15);
 
@@ -269,6 +271,7 @@ article > div {
 
 .income { color: var(--income); }
 .expense { color: var(--expense); }
+.pending { color: var(--pending); }
 .warn    { color: var(--warn); }
 
 /* ---------- Charts ---------- */
@@ -403,6 +406,11 @@ button.small {
 
 .data-table tbody td.expense {
   color: var(--expense);
+  font-weight: 600;
+}
+
+.data-table tbody td.pending {
+  color: var(--pending);
   font-weight: 600;
 }
 

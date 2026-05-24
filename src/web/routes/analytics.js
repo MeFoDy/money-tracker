@@ -9,7 +9,8 @@ import {
   getKpiMetrics,
   getIncomeExpenseOverTime,
   getPeriodComparison,
-  getHeatmapData
+  getHeatmapData,
+  getTransactionDateRange
 } from '../../core/analytics.js';
 
 function parseCategoryIds(queryValue) {
@@ -66,6 +67,10 @@ export default async function analyticsRoutes(app) {
 
   app.get('/uncategorized-count', async () => {
     return { count: getUncategorizedCount() };
+  });
+
+  app.get('/date-range', async () => {
+    return getTransactionDateRange();
   });
 
   app.get('/summary', async () => {

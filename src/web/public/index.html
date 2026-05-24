@@ -257,7 +257,7 @@
                     <td><input type="checkbox" :value="tx.id" x-model="selectedIds"></td>
                     <td x-text="formatDate(tx.tx_date)"></td>
                     <td x-text="tx.description"></td>
-                    <td :class="tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
+                    <td :class="tx.is_pending ? 'pending' : tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                     <td x-text="tx.currency"></td>
                     <td x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"></td>
                     <td>
@@ -394,7 +394,7 @@
                 <tr>
                   <td x-text="formatDate(tx.tx_date)" class="drawer-date-cell"></td>
                   <td x-text="tx.description"></td>
-                  <td class="text-right" :class="tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
+                  <td class="text-right" :class="tx.is_pending ? 'pending' : tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                   <td>
                     <span class="category-badge" :style="'background-color: ' + (categoryMap[tx.category_id]?.color || '#555')" x-text="categoryMap[tx.category_id]?.name || '—'"></span>
                   </td>

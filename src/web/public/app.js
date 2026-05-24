@@ -49,7 +49,15 @@ document.addEventListener('alpine:init', () => {
       await this.loadAccounts();
       await this.loadCategories();
       this.loadDashFiltersFromUrl();
-      this.applyDashPeriod(false);
+      if (this.dashFilters.period === 'all') {
+        if (!this.dashFilters.from || !this.dashFilters.to) {
+          const range = await this.api('/analytics/date-range');
+          this.dashFilters.from = range.min || '';
+          this.dashFilters.to = range.max || '';
+        }
+      } else {
+        await this.applyDashPeriod(false);
+      }
       this.$watch('page', async (value) => {
         if (value === 'dashboard') {
           await this.loadDashboard();
@@ -192,7 +200,7 @@ document.addEventListener('alpine:init', () => {
       this.loadDashboard();
     },
 
-    applyDashPeriod(shouldLoad = true) {
+    async applyDashPeriod(shouldLoad = true) {
       const now = new Date();
       const today = now.toISOString().slice(0, 10);
       let from;
@@ -202,8 +210,11 @@ document.addEventListener('alpine:init', () => {
           break;
         }
         case 'all': {
-          from = '';
-          break;
+          const range = await this.api('/analytics/date-range');
+          this.dashFilters.from = range.min || '';
+          this.dashFilters.to = range.max || '';
+          if (shouldLoad) this.loadDashboard();
+          return;
         }
         case 'custom': {
           // keep existing dates
