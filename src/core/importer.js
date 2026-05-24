@@ -3,8 +3,10 @@ import {
   createAccount, getAccountByNumber,
   createCategory, getCategoryByName,
   createTransaction, getTransactionByHash, updatePendingToCompleted,
-  createPending, createUpload
+  createPending, createUpload,
+  getActiveCategoryRules
 } from './repository.js';
+import { applyRules } from './rule-engine.js';
 
 function computeHash({ txDate, amount, currency, description, accountId }) {
   const payload = `${txDate}|${amount}|${currency}|${description}|${accountId}`;
@@ -28,47 +30,124 @@ function resolveCategory(bankCategoryName) {
   return category;
 }
 
-export function importStatement({ completed = [], pending = [], originalFilename = 'upload.csv' } = {}) {
+function getAccountCached(accountNumber, cache) {
+  if (!cache[accountNumber]) {
+    cache[accountNumber] = resolveAccount(accountNumber);
+  }
+  return cache[accountNumber];
+}
+
+function getCategoryCached(bankCategoryName, cache) {
+  if (!bankCategoryName) return null;
+  if (!cache[bankCategoryName]) {
+    cache[bankCategoryName] = resolveCategory(bankCategoryName);
+  }
+  return cache[bankCategoryName];
+}
+
+function buildPreviewTransaction(tx, isPending, accountCache, categoryCache, rules) {
+  const account = getAccountCached(tx.accountNumber, accountCache);
+  const bankCategory = getCategoryCached(tx.bankCategory, categoryCache);
+  const txHash = computeHash({
+    txDate: tx.txDate,
+    amount: tx.amount,
+    currency: tx.currency,
+    description: tx.description,
+    accountId: account.id
+  });
+
+  const existing = getTransactionByHash(txHash);
+
+  const originalCategoryId = bankCategory?.id || null;
+
+  const ruleMatch = applyRules({
+    description: tx.description,
+    amount: tx.amount,
+    accountId: account.id,
+    currency: tx.currency
+  }, rules);
+
+  const finalCategoryId = ruleMatch ? ruleMatch.categoryId : originalCategoryId;
+
+  return {
+    txDate: tx.txDate,
+    description: tx.description,
+    amount: tx.amount,
+    amountByn: tx.amountByn,
+    currency: tx.currency,
+    txType: tx.txType,
+    accountNumber: tx.accountNumber,
+    accountId: account.id,
+    originalCategoryId,
+    appliedRuleId: ruleMatch ? ruleMatch.id : null,
+    finalCategoryId,
+    txHash,
+    isDuplicate: !!existing,
+    isPending: isPending ? 1 : 0,
+    bankCategory: tx.bankCategory
+  };
+}
+
+/* ---------- Preview Import (no DB writes for transactions) ---------- */
+
+export function previewImport({ completed = [], pending = [], originalFilename = 'upload.csv' } = {}) {
+  const rules = getActiveCategoryRules();
+  const accountCache = {};
+  const categoryCache = {};
+
+  const transactions = [];
+  let duplicateCount = 0;
+
+  for (const tx of completed) {
+    const previewTx = buildPreviewTransaction(tx, false, accountCache, categoryCache, rules);
+    if (previewTx) {
+      transactions.push(previewTx);
+    }
+    if (previewTx?.isDuplicate) {
+      duplicateCount++;
+    }
+  }
+
+  for (const tx of pending) {
+    const previewTx = buildPreviewTransaction(tx, true, accountCache, categoryCache, rules);
+    if (previewTx) {
+      transactions.push(previewTx);
+    }
+    if (previewTx?.isDuplicate) {
+      duplicateCount++;
+    }
+  }
+
+  return {
+    transactions,
+    stats: {
+      newCount: transactions.length,
+      duplicateCount,
+      completedCount: completed.length,
+      pendingCount: pending.length
+    },
+    originalFilename
+  };
+}
+
+/* ---------- Confirm Import (writes to DB) ---------- */
+
+export function confirmImport({ transactions, originalFilename }) {
   let imported = 0;
   let duplicatesSkipped = 0;
   let updatedFromPending = 0;
 
-  const accountCache = {};
-  const categoryCache = {};
-
-  function getAccountCached(accountNumber) {
-    if (!accountCache[accountNumber]) {
-      accountCache[accountNumber] = resolveAccount(accountNumber);
+  for (const tx of transactions) {
+    if (tx.isDuplicate) {
+      duplicatesSkipped++;
+      continue;
     }
-    return accountCache[accountNumber];
-  }
 
-  function getCategoryCached(bankCategoryName) {
-    if (!bankCategoryName) return null;
-    if (!categoryCache[bankCategoryName]) {
-      categoryCache[bankCategoryName] = resolveCategory(bankCategoryName);
-    }
-    return categoryCache[bankCategoryName];
-  }
-
-  // Process completed transactions
-  for (const tx of completed) {
-    const account = getAccountCached(tx.accountNumber);
-    const bankCategory = getCategoryCached(tx.bankCategory);
-    const txHash = computeHash({
-      txDate: tx.txDate,
-      amount: tx.amount,
-      currency: tx.currency,
-      description: tx.description,
-      accountId: account.id
-    });
-
-    const existing = getTransactionByHash(txHash);
+    const existing = getTransactionByHash(tx.txHash);
     if (existing) {
-      if (existing.is_pending) {
-        // Convert pending to completed
-        updatePendingToCompleted(txHash, {
-          categoryId: bankCategory?.id || null,
+      if (existing.is_pending && !tx.isPending) {
+        updatePendingToCompleted(tx.txHash, {
+          categoryId: tx.finalCategoryId,
           amount: tx.amount,
           amountByn: tx.amountByn,
           bankCategory: tx.bankCategory
@@ -81,65 +160,32 @@ export function importStatement({ completed = [], pending = [], originalFilename
     }
 
     createTransaction({
-      accountId: account.id,
-      categoryId: bankCategory?.id || null,
+      accountId: tx.accountId,
+      categoryId: tx.finalCategoryId,
       txDate: tx.txDate,
       description: tx.description,
       amount: tx.amount,
       amountByn: tx.amountByn,
       currency: tx.currency,
       txType: tx.txType,
-      txHash,
+      txHash: tx.txHash,
       bankCategory: tx.bankCategory,
-      isPending: 0
-    });
-    imported++;
-  }
-
-  // Process pending transactions
-  for (const tx of pending) {
-    const account = getAccountCached(tx.accountNumber);
-    const bankCategory = getCategoryCached(tx.bankCategory);
-    const txHash = computeHash({
-      txDate: tx.txDate,
-      amount: tx.amount,
-      currency: tx.currency,
-      description: tx.description,
-      accountId: account.id
+      isPending: tx.isPending
     });
 
-    const existing = getTransactionByHash(txHash);
-    if (existing) {
-      duplicatesSkipped++;
-      continue;
+    if (tx.isPending) {
+      createPending({
+        accountId: tx.accountId,
+        txDate: tx.txDate,
+        description: tx.description,
+        amount: tx.amount,
+        amountByn: tx.amountByn,
+        currency: tx.currency,
+        txHash: tx.txHash,
+        bankCategory: tx.bankCategory
+      });
     }
 
-    // Create as pending transaction
-    createTransaction({
-      accountId: account.id,
-      categoryId: bankCategory?.id || null,
-      txDate: tx.txDate,
-      description: tx.description,
-      amount: tx.amount,
-      amountByn: tx.amountByn,
-      currency: tx.currency,
-      txType: tx.txType,
-      txHash,
-      bankCategory: tx.bankCategory,
-      isPending: 1
-    });
-
-    // Also insert into pending_transactions table for reference
-    createPending({
-      accountId: account.id,
-      txDate: tx.txDate,
-      description: tx.description,
-      amount: tx.amount,
-      amountByn: tx.amountByn,
-      currency: tx.currency,
-      txHash,
-      bankCategory: tx.bankCategory
-    });
     imported++;
   }
 
@@ -156,4 +202,11 @@ export function importStatement({ completed = [], pending = [], originalFilename
     updatedFromPending,
     uploadId: upload.id
   };
+}
+
+/* ---------- Legacy direct import (used by CLI) ---------- */
+
+export function importStatement({ completed = [], pending = [], originalFilename = 'upload.csv' } = {}) {
+  const preview = previewImport({ completed, pending, originalFilename });
+  return confirmImport({ transactions: preview.transactions, originalFilename });
 }

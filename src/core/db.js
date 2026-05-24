@@ -79,21 +79,29 @@ const MIGRATIONS = [
   CREATE INDEX IF NOT EXISTS idx_tx_hash ON transactions(tx_hash);
   CREATE INDEX IF NOT EXISTS idx_pending_hash ON pending_transactions(tx_hash);
   `,
-  // version 2 — удаление авто-категоризации
-  `DROP TABLE IF EXISTS category_rules;`
+  // version 3 — возвращаем авто-категоризацию с расширенными правилами
+  `
+  DROP TABLE IF EXISTS category_rules;
+
+  CREATE TABLE IF NOT EXISTS category_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER NOT NULL REFERENCES categories(id),
+    description_pattern TEXT,
+    min_amount REAL,
+    max_amount REAL,
+    account_id INTEGER REFERENCES accounts(id),
+    currency TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_rules_active ON category_rules(is_active);
+  CREATE INDEX IF NOT EXISTS idx_rules_priority ON category_rules(priority DESC);
+  `
 ];
 
 let dbInstance = null;
-
-export function getDb() {
-  if (!dbInstance) {
-    dbInstance = new Database(resolveDbPath());
-    dbInstance.pragma('journal_mode = WAL');
-    dbInstance.pragma('foreign_keys = ON');
-    runMigrations(dbInstance);
-  }
-  return dbInstance;
-}
 
 function runMigrations(db) {
   const currentVersion = db.pragma('user_version', { simple: true });
@@ -101,6 +109,41 @@ function runMigrations(db) {
     db.exec(MIGRATIONS[i]);
     db.pragma(`user_version = ${i + 1}`);
   }
+}
+
+function ensureCategoryRulesTable(db) {
+  const tableExists = db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'category_rules'
+  `).get();
+  if (!tableExists) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS category_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_id INTEGER NOT NULL REFERENCES categories(id),
+        description_pattern TEXT,
+        min_amount REAL,
+        max_amount REAL,
+        account_id INTEGER REFERENCES accounts(id),
+        currency TEXT,
+        priority INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_rules_active ON category_rules(is_active);
+      CREATE INDEX IF NOT EXISTS idx_rules_priority ON category_rules(priority DESC);
+    `);
+  }
+}
+
+export function getDb() {
+  if (!dbInstance) {
+    dbInstance = new Database(resolveDbPath());
+    dbInstance.pragma('journal_mode = WAL');
+    dbInstance.pragma('foreign_keys = ON');
+    runMigrations(dbInstance);
+    ensureCategoryRulesTable(dbInstance);
+  }
+  return dbInstance;
 }
 
 export function closeDb() {

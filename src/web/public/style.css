@@ -353,6 +353,10 @@ button.small {
   font-size: 0.8rem;
 }
 
+.square {
+  aspect-ratio: 1 / 1;
+}
+
 /* ---------- Tables ---------- */
 .data-table-wrap {
   background: var(--bg-surface);
@@ -1189,6 +1193,151 @@ button.small {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ---------- Auto-categorized badge & row highlight ---------- */
+.auto-categorized {
+  background-color: rgba(59, 130, 246, 0.06);
+}
+
+td:has(.auto-badge) {
+  position: relative;
+}
+
+.auto-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  background: var(--accent-secondary);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ---------- Preview actions ---------- */
+.preview-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Rule Toolbar ---------- */
+.rule-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Actions Cell ---------- */
+.actions-cell {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.actions-cell button {
+  margin-left: 0.25rem;
+}
+
+/* ---------- Transaction Actions Dropdown ---------- */
+.tx-actions-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.tx-actions-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  padding: 0.25rem;
+}
+
+.tx-actions-dropdown.open {
+  display: block;
+}
+
+.tx-actions-dropdown button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+}
+
+.tx-actions-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.04);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- Drawer Actions ---------- */
+.drawer-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* ---------- Rule form ---------- */
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.rule-form input,
+.rule-form select {
+  margin-bottom: 0;
+}
+
+.rule-form p {
+  display: flex;
+  gap: 0.6em;
+  align-items: center;
+}
+
+.rule-form span {
+  min-width: 22ch;
+  text-align: right;
+}
+
+.rule-form button {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent-primary);
 }
 
 /* ---------- Reduced Motion ---------- */

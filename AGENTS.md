@@ -31,9 +31,11 @@ Tests use isolated temp SQLite DBs (`tests/_helper.js`). No external services ne
 
 ## Lint
 
+Always run `lint:fix` first to auto-fix what can be fixed, then run `lint` to check remaining issues:
+
 ```bash
-pnpm run lint
 pnpm run lint:fix
+pnpm run lint
 ```
 
 ## Architecture

@@ -34,6 +34,11 @@ document.addEventListener('alpine:init', () => {
         { name: 'Фиолетовый', value: '#8b5cf6' }
       ],
       uploadResult: null,
+      uploadPreview: { transactions: [], stats: {} },
+      isPreviewMode: false,
+      categoryRules: [],
+      ruleDrawer: { open: false, mode: 'create', rule: { id: null, categoryId: '', descriptionPattern: '', minAmount: '', maxAmount: '', accountId: '', currency: '', priority: 0, isActive: true } },
+      txMenuOpen: null,
       drawer: { open: false, title: '', transactions: [] },
       lineHidden: { income: false, expense: false, balance: false },
       categoryDropdownOpen: false,
@@ -59,10 +64,19 @@ document.addEventListener('alpine:init', () => {
         await this.applyDashPeriod(false);
       }
       this.$watch('page', async (value) => {
-        if (value === 'dashboard') {
-          await this.loadDashboard();
-        } else if (value === 'transactions') {
-          await this.loadTransactions();
+        switch (value) {
+          case 'dashboard': {
+            await this.loadDashboard();
+            break;
+          }
+          case 'transactions': {
+            await this.loadTransactions();
+            break;
+          }
+          case 'categories': {
+            await this.loadCategoryRules();
+            break;
+          }
         }
       });
       if (this.page === 'dashboard') await this.loadDashboard();
@@ -70,6 +84,7 @@ document.addEventListener('alpine:init', () => {
         this.loadFiltersFromUrl();
         await this.loadTransactions();
       }
+      if (this.page === 'categories') await this.loadCategoryRules();
       globalThis.addEventListener('popstate', () => {
         this.loadPageFromUrl();
       });
@@ -775,11 +790,140 @@ document.addEventListener('alpine:init', () => {
 
     async uploadFile(file) {
       this.uploadResult = null;
+      this.isPreviewMode = false;
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('api/upload', { method: 'POST', body: form });
+      const res = await fetch('api/upload/preview', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('Upload preview error', data);
+        throw new Error(data.error || 'Upload preview failed');
+      }
+      this.uploadPreview = data;
+      this.isPreviewMode = true;
+    },
+
+    async confirmUpload() {
+      const res = await fetch('api/upload/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactions: this.uploadPreview.transactions,
+          originalFilename: this.uploadPreview.originalFilename
+        })
+      });
       this.uploadResult = await res.json();
+      this.isPreviewMode = false;
+      this.uploadPreview = { transactions: [], stats: {} };
       if (this.page === 'dashboard') await this.loadDashboard();
+    },
+
+    cancelUpload() {
+      this.isPreviewMode = false;
+      this.uploadPreview = { transactions: [], stats: {} };
+    },
+
+    updatePreviewCategory(index, categoryId) {
+      const tx = this.uploadPreview.transactions[index];
+      if (tx) tx.finalCategoryId = categoryId === '' ? null : Number(categoryId);
+    },
+
+    async loadCategoryRules() {
+      const data = await this.api('/category-rules');
+      this.categoryRules = data.rules;
+    },
+
+    async saveCategoryRule() {
+      const rule = this.ruleDrawer.rule;
+      if (!rule.categoryId) return;
+      const payload = {
+        categoryId: Number(rule.categoryId),
+        descriptionPattern: rule.descriptionPattern || null,
+        minAmount: rule.minAmount === '' || rule.minAmount === null || rule.minAmount === undefined ? null : Number(rule.minAmount),
+        maxAmount: rule.maxAmount === '' || rule.maxAmount === null || rule.maxAmount === undefined ? null : Number(rule.maxAmount),
+        accountId: rule.accountId ? Number(rule.accountId) : null,
+        currency: rule.currency || null,
+        priority: Number(rule.priority) || 0,
+        isActive: Boolean(rule.isActive)
+      };
+      await (this.ruleDrawer.mode === 'edit' && rule.id ? this.api('/category-rules/' + rule.id, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
+        }) : this.api('/category-rules', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        }));
+      this.closeRuleDrawer();
+      await this.loadCategoryRules();
+    },
+
+    openRuleDrawer(rule = null) {
+      if (this.drawer.open) this.closeDrawer();
+      this.ruleDrawer = rule ? {
+          open: true,
+          mode: 'edit',
+          rule: {
+            id: rule.id,
+            categoryId: String(rule.categoryId || ''),
+            descriptionPattern: rule.descriptionPattern || '',
+            minAmount: rule.minAmount !== null && rule.minAmount !== undefined ? String(rule.minAmount) : '',
+            maxAmount: rule.maxAmount !== null && rule.maxAmount !== undefined ? String(rule.maxAmount) : '',
+            accountId: String(rule.accountId || ''),
+            currency: rule.currency || '',
+            priority: rule.priority ?? 0,
+            isActive: Boolean(rule.isActive)
+          }
+        } : {
+          open: true,
+          mode: 'create',
+          rule: { id: null, categoryId: '', descriptionPattern: '', minAmount: '', maxAmount: '', accountId: '', currency: '', priority: 0, isActive: true }
+        };
+    },
+
+    closeRuleDrawer() {
+      this.ruleDrawer.open = false;
+    },
+
+    openRuleDrawerFromTransaction(tx) {
+      if (this.drawer.open) this.closeDrawer();
+      this.ruleDrawer = {
+        open: true,
+        mode: 'create',
+        rule: {
+          id: null,
+          categoryId: String(tx.category_id || ''),
+          descriptionPattern: tx.description || '',
+          minAmount: '',
+          maxAmount: '',
+          accountId: String(tx.account_id || ''),
+          currency: tx.currency || '',
+          priority: 0,
+          isActive: true
+        }
+      };
+    },
+
+    async deleteCategoryRule(id) {
+      if (!confirm('Удалить правило?')) return;
+      await this.api('/category-rules/' + id, { method: 'DELETE' });
+      await this.loadCategoryRules();
+    },
+
+    async toggleRuleActive(rule) {
+      await this.api('/category-rules/' + rule.id, {
+        method: 'PUT',
+        body: JSON.stringify({
+          categoryId: rule.categoryId,
+          descriptionPattern: rule.descriptionPattern,
+          minAmount: rule.minAmount,
+          maxAmount: rule.maxAmount,
+          accountId: rule.accountId,
+          currency: rule.currency,
+          priority: rule.priority,
+          isActive: !rule.isActive
+        })
+      });
+      await this.loadCategoryRules();
     },
 
     formatMoney(n, currency = 'BYN') {

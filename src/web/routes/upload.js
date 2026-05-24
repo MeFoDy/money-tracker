@@ -1,8 +1,8 @@
 import { parseStatement } from '../../core/parser.js';
-import { importStatement } from '../../core/importer.js';
+import { previewImport, confirmImport } from '../../core/importer.js';
 
 export default async function uploadRoutes(app) {
-  app.post('/', async (request, reply) => {
+  app.post('/preview', async (request, reply) => {
     const data = await request.file();
     if (!data) {
       return reply.code(400).send({ error: 'No file uploaded' });
@@ -18,7 +18,21 @@ export default async function uploadRoutes(app) {
       return reply.code(422).send({ error: 'Parse failed', message: error.message });
     }
 
-    const result = importStatement({ ...parsed, originalFilename });
+    const result = previewImport({ ...parsed, originalFilename });
     return result;
+  });
+
+  app.post('/confirm', async (request, reply) => {
+    const { transactions, originalFilename } = request.body || {};
+    if (!Array.isArray(transactions)) {
+      return reply.code(400).send({ error: 'transactions must be an array' });
+    }
+
+    try {
+      const result = confirmImport({ transactions, originalFilename: originalFilename || 'upload.csv' });
+      return result;
+    } catch (error) {
+      return reply.code(500).send({ error: 'Import failed', message: error.message });
+    }
   });
 }
