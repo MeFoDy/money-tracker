@@ -879,6 +879,7 @@ document.addEventListener('alpine:init', () => {
         throw new Error(data.error || 'Upload preview failed');
       }
       this.uploadPreview = data;
+      await this.loadCategories();
       this.isPreviewMode = true;
     },
 
