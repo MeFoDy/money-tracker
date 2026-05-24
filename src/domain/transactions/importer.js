@@ -62,6 +62,13 @@ function buildPreviewTransaction(tx, isPending, accountCache, categoryCache, rul
 
   const finalCategoryId = ruleMatch ? ruleMatch.categoryId : originalCategoryId;
 
+  // A record is a true duplicate only when the existing entry is already
+  // completed (is_pending = 0) and the incoming tx is also completed,
+  // OR when both are pending. If the existing entry is pending and the
+  // incoming tx is completed, this is a pending→completed upgrade — NOT
+  // a duplicate.
+  const isDuplicate = !!existing && !(existing.is_pending && !isPending);
+
   return {
     txDate: tx.txDate,
     description: tx.description,
@@ -75,7 +82,7 @@ function buildPreviewTransaction(tx, isPending, accountCache, categoryCache, rul
     appliedRuleId: ruleMatch ? ruleMatch.id : null,
     finalCategoryId,
     txHash,
-    isDuplicate: !!existing,
+    isDuplicate,
     isPending: isPending ? 1 : 0,
     bankCategory: tx.bankCategory
   };

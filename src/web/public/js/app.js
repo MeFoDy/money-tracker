@@ -778,6 +778,28 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    async deleteTx(id) {
+      if (!confirm('Удалить транзакцию? Это действие необратимо.')) return;
+      // Optimistic remove from list
+      const idx = this.transactions.rows.findIndex(t => t.id === id);
+      let removed;
+      if (idx !== -1) {
+        removed = this.transactions.rows.splice(idx, 1)[0];
+        this.transactions.total = Math.max(0, (this.transactions.total || 0) - 1);
+      }
+      this.selectedIds = this.selectedIds.filter(sid => sid !== id);
+      try {
+        await this.api('/transactions/' + id, { method: 'DELETE' });
+      } catch (error) {
+        // Rollback
+        if (removed && idx !== -1) {
+          this.transactions.rows.splice(idx, 0, removed);
+          this.transactions.total = (this.transactions.total || 0) + 1;
+        }
+        throw error;
+      }
+    },
+
     async loadCategories() {
       const data = await this.api('/categories');
       this.categories = data.categories;

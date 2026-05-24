@@ -1277,7 +1277,8 @@ td:has(.auto-badge) {
 }
 
 .tx-actions-dropdown.open {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .tx-actions-dropdown button {
@@ -1297,6 +1298,14 @@ td:has(.auto-badge) {
   background: rgba(255, 255, 255, 0.04);
   transform: none;
   box-shadow: none;
+}
+
+.tx-actions-dropdown button.danger {
+  color: var(--color-expense, #f43f5e);
+}
+
+.tx-actions-dropdown button.danger:hover {
+  background: rgba(244, 63, 94, 0.08);
 }
 
 /* ---------- Drawer Actions ---------- */

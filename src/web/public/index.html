@@ -283,6 +283,7 @@
                         <button class="secondary outline square" @click="txMenuOpen = txMenuOpen === tx.id ? null : tx.id" aria-label="Действия">⋮</button>
                         <div class="tx-actions-dropdown" :class="{ 'open': txMenuOpen === tx.id }">
                           <button type="button" @click="openRuleDrawerFromTransaction(tx); txMenuOpen = null">Создать правило</button>
+                          <button type="button" class="danger" @click="deleteTx(tx.id); txMenuOpen = null">Удалить</button>
                         </div>
                       </div>
                     </td>

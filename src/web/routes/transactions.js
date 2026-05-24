@@ -1,4 +1,4 @@
-import { getTransactions, bulkUpdateCategory } from '../../domain/transactions/index.js';
+import { getTransactions, bulkUpdateCategory, deleteTransaction } from '../../domain/transactions/index.js';
 
 function getCategoryIdParam(categoryId) {
   if (categoryId === 'null') return null;
@@ -19,6 +19,18 @@ export default async function transactionRoutes(app) {
       offset: offset ? Number(offset) : 0,
       orderBy: orderBy || 'tx_date DESC'
     });
+  });
+
+  app.delete('/:id', async (request, reply) => {
+    const id = Number(request.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.code(400).send({ error: 'Invalid transaction id' });
+    }
+    const deleted = deleteTransaction(id);
+    if (!deleted) {
+      return reply.code(404).send({ error: 'Transaction not found' });
+    }
+    return { deleted: true, id };
   });
 
   app.patch('/bulk', async (request, reply) => {

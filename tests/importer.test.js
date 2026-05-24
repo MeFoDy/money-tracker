@@ -1,7 +1,7 @@
 import { describe, beforeEach, afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseStatement } from '../src/domain/transactions/parser.js';
-import { importStatement } from '../src/domain/transactions/importer.js';
+import { importStatement, previewImport, confirmImport } from '../src/domain/transactions/importer.js';
 import { getTransactions } from '../src/domain/transactions/index.js';
 import { getAllAccounts } from '../src/domain/accounts/index.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
@@ -57,5 +57,40 @@ describe('Importer', () => {
     const all = getTransactions({ limit: 10_000 });
     const completedRows = all.rows.filter(t => t.is_pending === 0);
     assert.ok(completedRows.length > 0, 'expected completed transactions');
+  });
+
+  test('pending transaction is upgraded to completed when same tx arrives as completed', () => {
+    const tx = {
+      txDate: '2024-03-01',
+      amount: -50,
+      amountByn: -50,
+      currency: 'BYN',
+      description: 'Test payment',
+      txType: 'expense',
+      accountNumber: 'TEST001',
+      bankCategory: null
+    };
+
+    // Import as pending first
+    const r1 = importStatement({ completed: [], pending: [tx], originalFilename: 'a.csv' });
+    assert.equal(r1.imported, 1);
+    assert.equal(r1.updatedFromPending, 0);
+
+    // Verify it's in DB as pending
+    const preview1 = previewImport({ completed: [tx], pending: [], originalFilename: 'b.csv' });
+    const previewTx = preview1.transactions[0];
+    assert.ok(previewTx, 'should have a transaction in preview');
+    assert.equal(previewTx.isDuplicate, false, 'pending→completed upgrade must NOT be flagged as duplicate');
+
+    // Import as completed now
+    const r2 = confirmImport({ transactions: preview1.transactions, originalFilename: 'b.csv' });
+    assert.equal(r2.updatedFromPending, 1, 'should upgrade pending to completed');
+    assert.equal(r2.duplicatesSkipped, 0, 'should not count as duplicate');
+
+    // Verify it's now completed in DB
+    const all = getTransactions({ limit: 1000 });
+    const found = all.rows.find(t => t.description === 'Test payment');
+    assert.ok(found, 'transaction must exist');
+    assert.equal(found.is_pending, 0, 'transaction must be completed');
   });
 });

@@ -85,3 +85,7 @@ export function createPending({ accountId, txDate, description, amount, amountBy
 export function getPendingByHash(txHash) {
   return getDb().prepare('SELECT * FROM pending_transactions WHERE tx_hash = ?').get(txHash);
 }
+
+export function deleteTransaction(id) {
+  return getDb().prepare('DELETE FROM transactions WHERE id = ? RETURNING *').get(id);
+}
