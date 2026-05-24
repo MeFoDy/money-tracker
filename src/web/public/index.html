@@ -210,13 +210,13 @@
           <div class="filters grid">
             <input type="date" x-model="filters.from" @change="loadTransactions()" placeholder="От">
             <input type="date" x-model="filters.to" @change="loadTransactions()" placeholder="До">
-            <select x-model="filters.accountId" @change="loadTransactions()">
+            <select x-model="filters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = filters.accountId })" @change="loadTransactions()">
               <option value="">Все счета</option>
               <template x-for="acc in accounts" :key="acc.id">
                 <option :value="acc.id" x-text="acc.name || acc.account_number"></option>
               </template>
             </select>
-            <select x-model="filters.categoryId" @change="loadTransactions()">
+            <select x-model="filters.categoryId" x-effect="categories.length; $nextTick(() => { $el.value = filters.categoryId })" @change="loadTransactions()">
               <option value="">Все категории</option>
               <option value="null">Без категории</option>
               <template x-for="cat in categories" :key="cat.id">

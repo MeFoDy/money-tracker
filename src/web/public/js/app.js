@@ -92,6 +92,15 @@ document.addEventListener('alpine:init', () => {
 
     navigateTo(page) {
       if (this.page === page) return;
+      // Sync date range between dashboard and transactions before switching
+      if (this.page === 'transactions' && page === 'dashboard' && (this.filters.from || this.filters.to)) {
+        this.dashFilters.from = this.filters.from;
+        this.dashFilters.to = this.filters.to;
+        this.dashFilters.period = 'custom';
+      } else if (this.page === 'dashboard' && page === 'transactions' && (this.dashFilters.from || this.dashFilters.to)) {
+        this.filters.from = this.dashFilters.from;
+        this.filters.to = this.dashFilters.to;
+      }
       this.page = page;
       const url = new URL(globalThis.location.href);
       if (page !== 'dashboard') {
