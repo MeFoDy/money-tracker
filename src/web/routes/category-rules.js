@@ -3,7 +3,7 @@ import {
   createCategoryRule,
   updateCategoryRule,
   deleteCategoryRule
-} from '../../core/repository.js';
+} from '../../domain/category-rules/index.js';
 
 export default async function categoryRuleRoutes(app) {
   app.get('/', async () => {

@@ -20,6 +20,5 @@ data/
 Thumbs.db
 
 # Uploads & temp
-uploads/
 tmp/
 reports/

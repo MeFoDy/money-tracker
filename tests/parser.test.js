@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStatement } from '../src/core/parser.js';
+import { parseStatement } from '../src/domain/transactions/parser.js';
 
 const STATEMENT_PATH = './reports/Vpsk_71487962.csv';
 

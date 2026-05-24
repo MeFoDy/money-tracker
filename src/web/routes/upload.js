@@ -1,5 +1,5 @@
-import { parseStatement } from '../../core/parser.js';
-import { previewImport, confirmImport } from '../../core/importer.js';
+import { parseStatement } from '../../domain/transactions/parser.js';
+import { previewImport, confirmImport } from '../../domain/transactions/importer.js';
 
 export default async function uploadRoutes(app) {
   app.post('/preview', async (request, reply) => {

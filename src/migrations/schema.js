@@ -1,13 +1,3 @@
-import Database from 'better-sqlite3';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function resolveDbPath() {
-  return process.env.DB_PATH || path.join(__dirname, '../../data/finance.db');
-}
-
 const MIGRATIONS = [
   // version 1
   `
@@ -101,9 +91,7 @@ const MIGRATIONS = [
   `
 ];
 
-let dbInstance = null;
-
-function runMigrations(db) {
+export function runMigrations(db) {
   const currentVersion = db.pragma('user_version', { simple: true });
   for (let i = currentVersion; i < MIGRATIONS.length; i++) {
     db.exec(MIGRATIONS[i]);
@@ -111,7 +99,7 @@ function runMigrations(db) {
   }
 }
 
-function ensureCategoryRulesTable(db) {
+export function ensureCategoryRulesTable(db) {
   const tableExists = db.prepare(`
     SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'category_rules'
   `).get();
@@ -132,23 +120,5 @@ function ensureCategoryRulesTable(db) {
       CREATE INDEX IF NOT EXISTS idx_rules_active ON category_rules(is_active);
       CREATE INDEX IF NOT EXISTS idx_rules_priority ON category_rules(priority DESC);
     `);
-  }
-}
-
-export function getDb() {
-  if (!dbInstance) {
-    dbInstance = new Database(resolveDbPath());
-    dbInstance.pragma('journal_mode = WAL');
-    dbInstance.pragma('foreign_keys = ON');
-    runMigrations(dbInstance);
-    ensureCategoryRulesTable(dbInstance);
-  }
-  return dbInstance;
-}
-
-export function closeDb() {
-  if (dbInstance) {
-    dbInstance.close();
-    dbInstance = null;
   }
 }

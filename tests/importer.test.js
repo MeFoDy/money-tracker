@@ -1,8 +1,9 @@
 import { describe, beforeEach, afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStatement } from '../src/core/parser.js';
-import { importStatement } from '../src/core/importer.js';
-import { getTransactions, getAllAccounts } from '../src/core/repository.js';
+import { parseStatement } from '../src/domain/transactions/parser.js';
+import { importStatement } from '../src/domain/transactions/importer.js';
+import { getTransactions } from '../src/domain/transactions/index.js';
+import { getAllAccounts } from '../src/domain/accounts/index.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
 
 const STATEMENT_PATH = './reports/Vpsk_71487962.csv';

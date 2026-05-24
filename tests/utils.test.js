@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDate } from '../src/web/public/utils.js';
+import { formatDate } from '../src/web/public/js/utils.js';
 
 describe('formatDate', () => {
   test('formats YYYY-MM-DD to DD.MM.YY', () => {

@@ -2,7 +2,9 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildApp } from '../src/web/server.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
-import { createCategory, createAccount, createCategoryRule } from '../src/core/repository.js';
+import { createCategory } from '../src/domain/categories/index.js';
+import { createAccount } from '../src/domain/accounts/index.js';
+import { createCategoryRule } from '../src/domain/category-rules/index.js';
 import fs from 'node:fs';
 
 const STATEMENT_PATH = './reports/Vpsk_71487962.csv';
@@ -43,7 +45,7 @@ describe('API', () => {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200);
       assert.ok(res.payload.includes('chart.js'));
-      assert.ok(res.payload.includes('app.js'));
+      assert.ok(res.payload.includes('./js/app.js'));
       assert.ok(res.payload.includes('alpinejs.js'));
     } finally {
       await app.close();

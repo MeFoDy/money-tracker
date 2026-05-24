@@ -1,4 +1,4 @@
-import { getAllCategories, createCategory, updateCategory, deleteCategory, getCategoryByName } from '../../core/repository.js';
+import { getAllCategories, createCategory, updateCategory, deleteCategory, getCategoryByName } from '../../domain/categories/index.js';
 
 export default async function categoryRoutes(app) {
   app.get('/', async () => {

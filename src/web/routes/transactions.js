@@ -1,4 +1,4 @@
-import { getTransactions, bulkUpdateCategory } from '../../core/repository.js';
+import { getTransactions, bulkUpdateCategory } from '../../domain/transactions/index.js';
 
 function getCategoryIdParam(categoryId) {
   if (categoryId === 'null') return null;

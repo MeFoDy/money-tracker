@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { matches, applyRules } from '../src/core/rule-engine.js';
+import { matches, applyRules } from '../src/domain/category-rules/engine.js';
 
 describe('rule-engine', () => {
   describe('matches', () => {

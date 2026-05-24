@@ -1,4 +1,4 @@
-import { getDb, closeDb } from '../src/core/db.js';
+import { getDb, closeDb } from '../src/config/database.js';
 import { rmSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

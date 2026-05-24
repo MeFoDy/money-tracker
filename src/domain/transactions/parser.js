@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import iconv from 'iconv-lite';
 import { parse } from 'csv-parse/sync';
+import { cleanAmount } from '../../shared/numbers.js';
+import { parseDate } from '../../shared/dates.js';
 
 const HEADER_9_FIRST = 'Дата транзакции';
 const HEADER_8_FIRST = 'Дата транзакции';
@@ -8,21 +10,6 @@ const HEADER_8_FIRST = 'Дата транзакции';
 const ACCOUNT_RE = /Операции по \.+(\d+)/;
 const PENDING_RE = /Заблокированные суммы по \.+(\d+)/;
 const TOTAL_RE = /^Всего по контракту/i;
-
-function cleanAmount(raw) {
-  if (!raw) return null;
-  const cleaned = String(raw).replaceAll(/\s/g, '').replace(',', '.');
-  const val = Number.parseFloat(cleaned);
-  return Number.isNaN(val) ? null : val;
-}
-
-function parseDate(raw) {
-  if (!raw) return null;
-  const m = String(raw).trim().match(/^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?/);
-  if (!m) return null;
-  const [, d, mo, y, t] = m;
-  return t ? `${y}-${mo}-${d} ${t}` : `${y}-${mo}-${d}`;
-}
 
 function detectSectionStart(row) {
   const line = row.join(';');

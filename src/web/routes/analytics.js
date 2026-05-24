@@ -11,7 +11,7 @@ import {
   getPeriodComparison,
   getHeatmapData,
   getTransactionDateRange
-} from '../../core/analytics.js';
+} from '../../domain/analytics/index.js';
 
 function parseCategoryIds(queryValue) {
   if (!queryValue) return undefined;

@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import fs from 'node:fs';
-import { parseStatement } from '../core/parser.js';
-import { importStatement } from '../core/importer.js';
+import { parseStatement } from '../domain/transactions/parser.js';
+import { importStatement } from '../domain/transactions/importer.js';
 import {
   getSpendingByCategory,
   getMonthlySummary,
   getTopCounterparties,
   getSummaryStats
-} from '../core/analytics.js';
-import { getTransactions, bulkUpdateCategory } from '../core/repository.js';
-import { closeDb } from '../core/db.js';
+} from '../domain/analytics/index.js';
+import { getTransactions, bulkUpdateCategory } from '../domain/transactions/index.js';
+import { closeDb } from '../config/database.js';
 
 const program = new Command();
 

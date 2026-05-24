@@ -1,17 +1,10 @@
-import { createHash } from 'node:crypto';
-import {
-  createAccount, getAccountByNumber,
-  createCategory, getCategoryByName,
-  createTransaction, getTransactionByHash, updatePendingToCompleted,
-  createPending, createUpload,
-  getActiveCategoryRules
-} from './repository.js';
-import { applyRules } from './rule-engine.js';
-
-function computeHash({ txDate, amount, currency, description, accountId }) {
-  const payload = `${txDate}|${amount}|${currency}|${description}|${accountId}`;
-  return createHash('sha256').update(payload).digest('hex');
-}
+import { computeHash } from '../../shared/hash.js';
+import { createAccount, getAccountByNumber } from '../accounts/index.js';
+import { createCategory, getCategoryByName } from '../categories/index.js';
+import { createTransaction, getTransactionByHash, updatePendingToCompleted, createPending } from './repository.js';
+import { createUpload } from '../uploads/index.js';
+import { getActiveCategoryRules } from '../category-rules/index.js';
+import { applyRules } from '../category-rules/engine.js';
 
 function resolveAccount(accountNumber) {
   let account = getAccountByNumber(accountNumber);

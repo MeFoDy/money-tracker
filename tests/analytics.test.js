@@ -1,7 +1,7 @@
 import { describe, beforeEach, afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStatement } from '../src/core/parser.js';
-import { importStatement } from '../src/core/importer.js';
+import { parseStatement } from '../src/domain/transactions/parser.js';
+import { importStatement } from '../src/domain/transactions/importer.js';
 import {
   getSpendingByCategory,
   getMonthlySummary,
@@ -13,7 +13,7 @@ import {
   getIncomeExpenseOverTime,
   getTransactionDateRange,
   getPeriodSummary
-} from '../src/core/analytics.js';
+} from '../src/domain/analytics/index.js';
 import { setupTestDb, teardownTestDb } from './_helper.js';
 
 const STATEMENT_PATH = './reports/Vpsk_71487962.csv';
