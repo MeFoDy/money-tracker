@@ -16,15 +16,15 @@ describe('Parser', () => {
   test('detects all accounts in completed transactions', () => {
     result = parseStatement(STATEMENT_PATH);
     const accounts = new Set(result.completed.map(t => t.accountNumber));
-    assert.deepStrictEqual([...accounts].toSorted(), ['5537', '8910', '9274', '9653']);
+    assert.deepStrictEqual([...accounts].toSorted(), ['1111', '2222', '3333', '4444']);
   });
 
   test('parses BYN income transaction correctly', () => {
     result = parseStatement(STATEMENT_PATH);
-    const tx = result.completed.find(t => t.txDate.startsWith('2026-05-20') && t.accountNumber === '9274');
-    assert.ok(tx, 'expected first completed tx for 9274');
-    assert.equal(tx.description, 'Поступление на контракт клиента 749117-00081-013272');
-    assert.equal(tx.amount, 10_017.31);
+    const tx = result.completed.find(t => t.txDate.startsWith('2026-05-20') && t.accountNumber === '1111');
+    assert.ok(tx, 'expected first completed tx for 1111');
+    assert.equal(tx.description, 'Поступление на контракт клиента 319684-97841-379946');
+    assert.equal(tx.amount, 11_850.9);
     assert.equal(tx.currency, 'BYN');
     assert.equal(tx.txType, 'income');
   });
@@ -33,8 +33,8 @@ describe('Parser', () => {
     result = parseStatement(STATEMENT_PATH);
     const tx = result.completed.find(t => t.currency === 'EUR');
     assert.ok(tx, 'expected EUR transaction');
-    assert.equal(tx.amount, -11.99);
-    assert.equal(tx.amountByn, -41.13); // latest rate
+    assert.equal(tx.amount, -10.35);
+    assert.equal(tx.amountByn, -36.85);
   });
 
   test('parses RUB transactions and amount in BYN', () => {
@@ -44,8 +44,8 @@ describe('Parser', () => {
     // Verify individual RUB transaction amounts match CSV exactly
     const amounts = txs.map(t => t.amount).toSorted((a, b) => a - b);
     // Check first few amounts from CSV (ascending)
-    assert.equal(amounts[0], -26_900);
-    assert.equal(amounts[1], -5200);
+    assert.equal(amounts[0], -29_036.12);
+    assert.equal(amounts[1], -29_007.65);
     // amountByn should be set for each
     assert.ok(txs.every(t => t.amountByn !== null && typeof t.amountByn === 'number'), 'expected amountByn for all RUB txs');
   });

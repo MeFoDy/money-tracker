@@ -40,7 +40,7 @@ describe('Importer', () => {
     importStatement({ ...parsed, originalFilename: 'test.csv' });
     const accounts = getAllAccounts();
     const numbers = accounts.map(a => a.account_number).toSorted();
-    assert.deepStrictEqual(numbers, ['5537', '8910', '9274', '9653']);
+    assert.deepStrictEqual(numbers, ['1111', '2222', '3333', '4444']);
   });
 
   test('pending transactions are inserted with is_pending=1', () => {
