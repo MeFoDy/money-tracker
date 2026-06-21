@@ -210,7 +210,10 @@ document.addEventListener('alpine:init', () => {
       }
 
       const range = await computePeriodRange(this.dashFilters.period, () => this.api('/analytics/date-range'));
-      this.setSharedDateRange(range.from, range.to);
+      this.dashFilters.from = range.from;
+      this.dashFilters.to = range.to;
+      this.filters.from = range.from;
+      this.filters.to = range.to;
       pushDateRangeToUrl(range);
       if (shouldLoad) this.loadDashboard();
     },

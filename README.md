@@ -9,12 +9,12 @@
 **Как пользоваться:**
 1. Склонируй себе этот репозиторий.
 2. `pnpm i`
-2. `pnpm run copy-frontend-deps`
-3. `pnpm run web`, после открой http://127.0.0.1:3000 (по умолчанию)
-4. Открой веб-версию онлайн-кабинета банка, выбери нужную карту и сгенерируй выписку по карте.
-5. Скачать выписку в формате CSV.
-6. Перейди во вкладку «Загрузить».
-7. Дальше — кликай везде, изучай, пользуйся.
+3. `pnpm run copy-frontend-deps`
+4. `pnpm run web`, после открой http://127.0.0.1:3000 (по умолчанию)
+5. Открой веб-версию онлайн-кабинета банка, выбери нужную карту и сгенерируй выписку по карте.
+6. Скачай выписку в формате CSV.
+7. Перейди во вкладку «Загрузить».
+8. Дальше — кликай везде, изучай, пользуйся.
 
 ---
 
@@ -54,7 +54,7 @@
 | Пакетный менеджер | pnpm |
 | Сервер | Fastify 4.x |
 | База данных | SQLite (`better-sqlite3`) |
-| SPA фреймворк | Alpine.js 3.x |
+| SPA фреймворк | Alpine.js 3.x (+ `@alpinejs/focus`) |
 | Графики | Chart.js 4.x + chartjs-plugin-datalabels |
 | CSS | Pico CSS 2.x |
 | CLI | Commander.js |
@@ -86,9 +86,9 @@ money-tracker/
 │   │   ├── hash.js              # SHA-256 хеширование
 │   │   ├── dates.js             # Работа с датами
 │   │   ├── numbers.js           # Форматирование чисел
-│   │   └── sql.js               # SQL-хелперы
+│   │   └── sql.js               # SQL-хелперы (buildWhere и др.)
 │   ├── domain/                  # Бизнес-логика по сущностям
-│   │   ├── accounts/            # CRUD счетов
+│   │   ├── accounts/            # CRUD счетов + комментарии
 │   │   ├── categories/          # CRUD категорий
 │   │   ├── category-rules/      # Правила авто-категоризации + движок
 │   │   ├── transactions/        # CRUD, парсер CSV, импортёр
@@ -100,16 +100,17 @@ money-tracker/
 │   │       ├── categories.js
 │   │       ├── counterparties.js
 │   │       ├── summary.js
-│   │       └── heatmap.js
+│   │       ├── heatmap.js
+│   │       └── index.js
 │   ├── web/
 │   │   ├── server.js            # Fastify: static, multipart, SPA fallback, security headers
 │   │   ├── routes/
 │   │   │   ├── index.js         # Регистрация роутов
-│   │   │   ├── upload.js        # POST /api/upload
+│   │   │   ├── upload.js        # POST /api/upload/preview, POST /api/upload/confirm
 │   │   │   ├── transactions.js  # GET /api/transactions, DELETE /api/transactions/:id, PATCH /api/transactions/bulk
 │   │   │   ├── categories.js    # CRUD категорий
 │   │   │   ├── category-rules.js# CRUD правил авто-категоризации
-│   │   │   ├── accounts.js      # GET /api/accounts
+│   │   │   ├── accounts.js      # GET /api/accounts, GET /api/accounts/currencies, PATCH /api/accounts/:id
 │   │   │   └── analytics.js     # GET /api/analytics/*
 │   │   └── public/              # SPA статика
 │   │       ├── index.html
@@ -117,6 +118,10 @@ money-tracker/
 │   │       ├── js/app.js        # Alpine.js логика
 │   │       ├── js/charts.js     # Chart.js обёртки
 │   │       ├── js/utils.js      # Фронтенд утилиты
+│   │       ├── js/date-range.js # Фильтры дат и пресеты
+│   │       ├── js/url-state.js  # Синхронизация фильтров с URL
+│   │       ├── js/account-filter.js # Компонент фильтра по счетам
+│   │       ├── js/category-filter.js # Компонент фильтра по категориям
 │   │       └── vendor/          # alpinejs.js, alpine-focus.js, chart.js, chartjs-plugin-datalabels.js, pico.css
 │   └── cli/
 │       └── cli.js               # Entrypoint для CLI
@@ -125,9 +130,13 @@ money-tracker/
     ├── parser.test.js
     ├── importer.test.js
     ├── rule-engine.test.js
-    ├── analytics.test.js
     ├── api.test.js
-    └── utils.test.js
+    ├── analytics.test.js
+    ├── utils.test.js
+    ├── account-filter.test.js
+    ├── category-filter.test.js
+    ├── date-range.test.js
+    └── url-state.test.js
 ```
 
 ---
@@ -186,10 +195,11 @@ CLI всегда выводит машиночитаемый JSON в `stdout` и
 Все эндпоинты возвращают JSON.
 
 ### Upload
-- `POST /api/upload` — multipart/form-data с полем `file`. Возвращает `{ imported, duplicatesSkipped, updatedFromPending, uploadId }`.
+- `POST /api/upload/preview` — multipart/form-data с полем `file`. Возвращает preview транзакций для подтверждения.
+- `POST /api/upload/confirm` — body `{ transactions, originalFilename? }`. Подтверждает импорт и возвращает `{ imported, duplicatesSkipped, updatedFromPending, uploadId }`.
 
 ### Transactions
-- `GET /api/transactions?from=&to=&accountId=&categoryId=&search=&limit=50&offset=0&orderBy=tx_date DESC` — список с пагинацией и фильтрами. `categoryId=null` фильтрует некатегоризированные.
+- `GET /api/transactions?from=&to=&accountId=&categoryIds=&search=&limit=50&offset=0&orderBy=tx_date DESC` — список с пагинацией и фильтрами. `categoryIds=null` или `categoryId=null` фильтрует некатегоризированные.
 - `DELETE /api/transactions/:id` — удалить транзакцию по ID.
 - `PATCH /api/transactions/bulk` — body `{ ids: number[], categoryId: number|null }`. Массовое обновление категории.
 
@@ -206,11 +216,13 @@ CLI всегда выводит машиночитаемый JSON в `stdout` и
 - `DELETE /api/category-rules/:id`
 
 ### Accounts
-- `GET /api/accounts`
+- `GET /api/accounts` — список счетов
+- `GET /api/accounts/currencies` — список уникальных валют
+- `PATCH /api/accounts/:id` — body `{ comment? }`, обновить комментарий счёта
 
 ### Analytics
 
-Все аналитические эндпоинты поддерживают общие фильтры: `from`, `to`, `accountId`, `categoryIds` (через запятую). Денежные значения используют `amount_byn` при наличии, иначе `amount`.
+Аналитические эндпоинты поддерживают общие фильтры: `from`, `to`, `accountId`, `categoryIds` (через запятую). Денежные значения используют `amount_byn` при наличии, иначе `amount`.
 
 - `GET /api/analytics/summary` — `{ totalTx, totalIncome, totalExpense, uncategorized }`
 - `GET /api/analytics/kpi` — KPI текущего периода + дельта к предыдущему равному периоду: `{ balance, income, incomeDelta, expense, expenseDelta, topCategory, transactionCount, prevPeriod }`
@@ -271,7 +283,7 @@ SQLite с WAL-режимом. Схема включает:
 - `uploads` — лог загрузок.
 
 ### Фронтенд
-Легковесное SPA на Alpine.js без сборщика. Страницы: дашборд, транзакции, категории, загрузка, правила категоризации. Chart.js отрисовывает doughnut (расходы по категориям), line (доходы/расходы по времени), bar (сравнение периодов). Тепловая карта реализована через чистый DOM. Состояние фильтров синхронизируется с URL query-параметрами. Все стили и скрипты — локальные.
+Легковесное SPA на Alpine.js без сборщика. Страницы: дашборд, транзакции, категории, загрузка, правила категоризации, счета. Chart.js отрисовывает doughnut (расходы по категориям), line (доходы/расходы по времени), bar (сравнение периодов). Тепловая карта реализована через чистый DOM. Состояние фильтров (даты, счёт, категории) синхронизируется с URL query-параметрами между дашбордом и страницей транзакций. Все стили и скрипты — локальные.
 
 ### Безопасность
 Сервер добавляет security headers ко всем ответам:
@@ -297,7 +309,8 @@ pnpm test
 - `rule-engine.test.js` — движок правил авто-категоризации;
 - `analytics.test.js` — агрегации, сортировка, кумулятивный баланс;
 - `api.test.js` — интеграционные тесты через `fastify.inject()`;
-- `utils.test.js` — юнит-тесты вспомогательных функций.
+- `utils.test.js` — юнит-тесты вспомогательных функций;
+- `account-filter.test.js`, `category-filter.test.js`, `date-range.test.js`, `url-state.test.js` — тесты фронтенд-логики фильтров и синхронизации URL.
 
 Тесты используют изолированные временные БД (`tests/_helper.js`).
 

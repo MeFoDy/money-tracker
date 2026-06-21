@@ -46,12 +46,12 @@ pnpm run lint
 - **Migrations** (`src/migrations/`): schema migrations (`schema.js`).
 - **Shared utilities** (`src/shared/`): `hash.js`, `dates.js`, `numbers.js`, `sql.js` — pure helpers used by both web and CLI.
 - **Domain** (`src/domain/`): business logic grouped by entity:
-  - `accounts/` — account CRUD
+  - `accounts/` — account CRUD and comments
   - `categories/` — category CRUD
   - `category-rules/` — rule CRUD + pure rule engine (`engine.js`)
-  - `transactions/` — transaction CRUD, CSV parser (`parser.js`), importer (`importer.js`)
+  - `transactions/` — transaction CRUD, CSV parser (`parser.js`), importer (`importer.js`) with preview/confirm flow
   - `uploads/` — upload CRUD
-  - `analytics/` — analytics queries split by topic: `base.js`, `kpi.js`, `time-series.js`, `categories.js`, `counterparties.js`, `summary.js`, `heatmap.js`
+  - `analytics/` — analytics queries split by topic: `base.js`, `kpi.js`, `time-series.js`, `categories.js`, `counterparties.js`, `summary.js`, `heatmap.js`, `index.js`
 - **No frontend build step**: SPA is static HTML/JS/CSS. Vendor libs live in `src/web/public/vendor/` and are copied from `node_modules` via `scripts/copy-frontend-deps.js`.
 - **Database**: SQLite (`better-sqlite3`) with WAL mode. Migrations are in `src/migrations/schema.js`. Default path: `data/finance.db` (gitignored). Override with `DB_PATH`.
 
@@ -61,7 +61,8 @@ pnpm run lint
 - **CLI output**: always JSON to stdout; errors → JSON to stderr + exit code 1.
 - **CSV parser**: expects `windows-1251` encoding, `;` delimiter, Russian bank statement format.
 - **Deduplication**: transactions hashed as `SHA-256(date|amount|currency|description|account_id)`.
-- **Pending transactions**: stored separately; auto-upgraded to completed when a matching completed tx is imported.
+- **Pending transactions**: stored in both `transactions` (`is_pending=1`) and `pending_transactions`; pending records are auto-upgraded to completed when a matching completed tx is imported.
+- **Import flow**: web upload uses preview (`POST /api/upload/preview`) then confirm (`POST /api/upload/confirm`); CLI import is direct.
 - **ESLint ignores**: `node_modules`, `data/**`, `src/web/public/vendor/**`.
 
 ## Env Variables
