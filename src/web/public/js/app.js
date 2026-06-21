@@ -1,5 +1,7 @@
 import { renderDoughnut, renderIncomeExpenseLine, renderPeriodComparisonBar } from './charts.js';
 import { formatDate as fmtDate } from './utils.js';
+import { getDefaultDateRange, resolveDateRangeFromUrl, computePeriodRange } from './date-range.js';
+import { pushDateRangeToUrl, replaceDateRangeInUrl, buildPageUrl } from './url-state.js';
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => {
@@ -19,7 +21,7 @@ document.addEventListener('alpine:init', () => {
       accounts: [],
       accountMap: {},
       filters: { from: '', to: '', accountId: '', categoryId: '', search: '' },
-      dashFilters: { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' },
+      dashFilters: { period: 'custom', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' },
       groupBy: 'month',
       selectedIds: [],
       bulkCategoryId: '',
@@ -52,20 +54,20 @@ document.addEventListener('alpine:init', () => {
       accountEdit: { id: null, comment: '' },
 
     async initApp() {
-      this.loadPageFromUrl();
+      this.applyPageFromUrl();
       await this.loadAccounts();
       await this.loadCategories();
       await this.loadCurrencies();
-      this.loadDashFiltersFromUrl();
-      if (this.dashFilters.period === 'all') {
-        if (!this.dashFilters.from || !this.dashFilters.to) {
-          const range = await this.api('/analytics/date-range');
-          this.dashFilters.from = range.min || '';
-          this.dashFilters.to = range.max || '';
-        }
-      } else {
-        await this.applyDashPeriod(false);
-      }
+      this.applyDateRangeFromUrl(true);
+      this.setupPageWatcher();
+      await this.loadCurrentPageData();
+      globalThis.addEventListener('popstate', async () => {
+        this.applyPageFromUrl();
+        await this.loadCurrentPageData();
+      });
+    },
+
+    setupPageWatcher() {
       this.$watch('page', async (value) => {
         switch (value) {
           case 'dashboard': {
@@ -82,53 +84,46 @@ document.addEventListener('alpine:init', () => {
           }
         }
       });
+    },
+
+    async loadCurrentPageData() {
       if (this.page === 'dashboard') await this.loadDashboard();
-      if (this.page === 'transactions') {
-        this.loadFiltersFromUrl();
-        await this.loadTransactions();
-      }
+      if (this.page === 'transactions') await this.loadTransactions();
       if (this.page === 'categories') await this.loadCategoryRules();
-      globalThis.addEventListener('popstate', () => {
-        this.loadPageFromUrl();
-      });
     },
 
     navigateTo(page) {
       if (this.page === page) return;
-      // Sync date range between dashboard and transactions before switching
-      if (this.page === 'transactions' && page === 'dashboard' && (this.filters.from || this.filters.to)) {
-        this.dashFilters.from = this.filters.from;
-        this.dashFilters.to = this.filters.to;
-        this.dashFilters.period = 'custom';
-      } else if (this.page === 'dashboard' && page === 'transactions' && (this.dashFilters.from || this.dashFilters.to)) {
-        this.filters.from = this.dashFilters.from;
-        this.filters.to = this.dashFilters.to;
-      }
       this.page = page;
-      const url = new URL(globalThis.location.href);
-      if (page !== 'dashboard') {
-        const dashKeys = ['period', 'from', 'to', 'accountId', 'txType', 'categoryIds', 'groupBy'];
-        for (const key of dashKeys) {
-          url.searchParams.delete(key);
-        }
-      }
-      if (page !== 'transactions') {
-        const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
-        for (const key of txKeys) {
-          url.searchParams.delete(key);
-        }
-      }
-      url.searchParams.set('page', page);
-      globalThis.history.pushState({}, '', url);
+      globalThis.history.pushState({}, '', buildPageUrl(page, this.sharedDateRange).toString());
     },
 
-    loadPageFromUrl() {
+    applyPageFromUrl() {
       const url = new URL(globalThis.location.href);
       const page = url.searchParams.get('page');
       const allowed = ['dashboard', 'transactions', 'categories', 'accounts', 'upload'];
       if (page && allowed.includes(page)) {
         this.page = page;
       }
+      this.applyDateRangeFromUrl(false);
+    },
+
+    get sharedDateRange() {
+      return { from: this.dashFilters.from, to: this.dashFilters.to };
+    },
+
+    applyDateRangeFromUrl(shouldReplaceUrl) {
+      const { from, to } = resolveDateRangeFromUrl();
+      this.setSharedDateRange(from, to);
+      if (shouldReplaceUrl) replaceDateRangeInUrl({ from, to });
+    },
+
+    setSharedDateRange(from, to) {
+      this.dashFilters.from = from;
+      this.dashFilters.to = to;
+      this.dashFilters.period = 'custom';
+      this.filters.from = from;
+      this.filters.to = to;
     },
 
     async api(path, opts = {}) {
@@ -154,114 +149,40 @@ document.addEventListener('alpine:init', () => {
       return q;
     },
 
-    syncDashFiltersToUrl() {
-      const url = new URL(globalThis.location.href);
-      const keys = ['period', 'from', 'to', 'accountId', 'txType'];
-      for (const key of keys) {
-        if (this.dashFilters[key]) {
-          url.searchParams.set(key, this.dashFilters[key]);
-        } else {
-          url.searchParams.delete(key);
-        }
-      }
-      if (this.dashFilters.categoryIds?.length > 0) {
-        url.searchParams.set('categoryIds', this.dashFilters.categoryIds.join(','));
-      } else {
-        url.searchParams.delete('categoryIds');
-      }
-      if (this.groupBy === 'month') {
-        url.searchParams.delete('groupBy');
-      } else {
-        url.searchParams.set('groupBy', this.groupBy);
-      }
-      globalThis.history.replaceState({}, '', url);
-    },
-
-    loadDashFiltersFromUrl() {
-      const url = new URL(globalThis.location.href);
-      const period = url.searchParams.get('period');
-      if (period) this.dashFilters.period = period;
-      const f = url.searchParams.get('from');
-      if (f) this.dashFilters.from = f;
-      const t = url.searchParams.get('to');
-      if (t) this.dashFilters.to = t;
-      const aid = url.searchParams.get('accountId');
-      if (aid) this.dashFilters.accountId = aid;
-      const txType = url.searchParams.get('txType');
-      if (txType) this.dashFilters.txType = txType;
-      const cids = url.searchParams.get('categoryIds');
-      if (cids) this.dashFilters.categoryIds = cids.split(',').map(Number);
-      const gb = url.searchParams.get('groupBy');
-      if (gb) this.groupBy = gb;
-    },
-
-    loadFiltersFromUrl() {
-      const url = new URL(globalThis.location.href);
-      const from = url.searchParams.get('from');
-      const to = url.searchParams.get('to');
-      const accountId = url.searchParams.get('accountId');
-      const categoryId = url.searchParams.get('categoryId');
-      const search = url.searchParams.get('search');
-      if (from) this.filters.from = from;
-      if (to) this.filters.to = to;
-      if (accountId !== null) this.filters.accountId = accountId;
-      if (categoryId !== null) this.filters.categoryId = categoryId;
-      if (search !== null) this.filters.search = search;
-    },
-
-    syncFiltersToUrl() {
-      const url = new URL(globalThis.location.href);
-      const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
-      for (const key of txKeys) {
-        if (this.filters[key]) {
-          url.searchParams.set(key, this.filters[key]);
-        } else {
-          url.searchParams.delete(key);
-        }
-      }
-      globalThis.history.replaceState({}, '', url);
-    },
-
     onDashDateChange() {
-      this.dashFilters.period = 'custom';
+      const { from, to } = this.dashFilters;
+      this.setSharedDateRange(from, to);
+      pushDateRangeToUrl({ from, to });
       this.loadDashboard();
     },
 
     async applyDashPeriod(shouldLoad = true) {
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      let from;
-      switch (this.dashFilters.period) {
-        case 'month': {
-          from = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
-        case 'all': {
-          const range = await this.api('/analytics/date-range');
-          this.dashFilters.from = range.min || '';
-          this.dashFilters.to = range.max || '';
-          if (shouldLoad) this.loadDashboard();
-          return;
-        }
-        case 'custom': {
-          // keep existing dates
-          if (shouldLoad) this.loadDashboard();
-          return;
-        }
-        default: {
-          from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString().slice(0, 10);
-          break;
-        }
+      if (this.dashFilters.period === 'custom') {
+        if (shouldLoad) this.loadDashboard();
+        return;
       }
-      this.dashFilters.from = from;
-      this.dashFilters.to = this.dashFilters.period === 'all' ? '' : today;
+
+      const range = await computePeriodRange(this.dashFilters.period, () => this.api('/analytics/date-range'));
+      this.setSharedDateRange(range.from, range.to);
+      pushDateRangeToUrl(range);
       if (shouldLoad) this.loadDashboard();
     },
 
     resetDashFilters() {
-      this.dashFilters = { period: '3months', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' };
+      const range = getDefaultDateRange();
+      this.dashFilters = { period: 'custom', from: range.from, to: range.to, accountId: '', categoryIds: [], txType: 'all' };
+      this.filters = { ...this.filters, ...range };
       this.groupBy = 'month';
-      this.applyDashPeriod();
+      pushDateRangeToUrl(range);
+      this.loadDashboard();
+    },
+
+    onTransactionDateChange() {
+      const { from, to } = this.filters;
+      this.setSharedDateRange(from, to);
+      pushDateRangeToUrl({ from, to });
+      this.transactions.offset = 0;
+      this.loadTransactions();
     },
 
     async loadDashboard() {
@@ -278,7 +199,6 @@ document.addEventListener('alpine:init', () => {
         const heatmap = await this.api('/analytics/heatmap?mode=' + this.heatmapMode + '&' + q.toString(), { signal: controller.signal });
         await this.$nextTick();
         this.renderDashboardCharts(ie, spending, comparison, heatmap);
-        this.syncDashFiltersToUrl();
       } catch (error) {
         if (error.name !== 'AbortError') throw error;
       } finally {
@@ -569,14 +489,21 @@ document.addEventListener('alpine:init', () => {
       this.drawerSearch = '';
     },
 
-    async openDrawerForCategory(item) {
+    buildDrawerQuery(extraParams = {}) {
       const q = new URLSearchParams();
       if (this.dashFilters.from) q.set('from', this.dashFilters.from);
       if (this.dashFilters.to) q.set('to', this.dashFilters.to);
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
-      if (item.category_id !== undefined && item.category_id !== null) q.set('categoryId', item.category_id);
-      else q.set('categoryId', 'null');
+      for (const [key, value] of Object.entries(extraParams)) {
+        q.set(key, value);
+      }
       q.set('limit', '100');
+      return q;
+    },
+
+    async openDrawerForCategory(item) {
+      const categoryId = item.category_id !== undefined && item.category_id !== null ? item.category_id : 'null';
+      const q = this.buildDrawerQuery({ categoryId });
       const data = await this.api('/transactions?' + q.toString());
       this.drawer = { open: true, title: `Транзакции: ${item.name}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
@@ -584,14 +511,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     async openDrawerForComparison(item) {
-      const q = new URLSearchParams();
-      if (this.dashFilters.from) q.set('from', this.dashFilters.from);
-      if (this.dashFilters.to) q.set('to', this.dashFilters.to);
-      if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
-      if (item.category_id !== undefined && item.category_id !== null) q.set('categoryId', item.category_id);
-      else q.set('categoryId', 'null');
-      q.set('type', 'expense');
-      q.set('limit', '100');
+      const categoryId = item.category_id !== undefined && item.category_id !== null ? item.category_id : 'null';
+      const q = this.buildDrawerQuery({ categoryId, type: 'expense' });
       const data = await this.api('/transactions?' + q.toString());
       this.drawer = { open: true, title: `Транзакции: ${item.name}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
@@ -706,7 +627,6 @@ document.addEventListener('alpine:init', () => {
           this.transactions = await this.api('/transactions?' + q.toString(), { signal: controller.signal });
           this.selectedIds = [];
           this.periodStats = await this.api('/analytics/period-summary?' + sq.toString(), { signal: controller.signal });
-          this.syncFiltersToUrl();
         } catch (error) {
           if (error.name !== 'AbortError') throw error;
         } finally {
@@ -715,14 +635,11 @@ document.addEventListener('alpine:init', () => {
       },
 
     resetFilters() {
-      this.filters = { from: '', to: '', accountId: '', categoryId: '', search: '' };
+      const range = getDefaultDateRange();
+      this.filters = { ...range, accountId: '', categoryId: '', search: '' };
+      this.dashFilters = { ...this.dashFilters, ...range };
       this.transactions.offset = 0;
-      const url = new URL(globalThis.location.href);
-      const txKeys = ['from', 'to', 'accountId', 'categoryId', 'search'];
-      for (const key of txKeys) {
-        url.searchParams.delete(key);
-      }
-      globalThis.history.replaceState({}, '', url);
+      pushDateRangeToUrl(range);
       this.loadTransactions();
     },
 

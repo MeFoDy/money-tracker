@@ -21,3 +21,6 @@ Thumbs.db
 
 # Uploads & temp
 tmp/
+
+# OpenCode local workspace
+.opencode/
