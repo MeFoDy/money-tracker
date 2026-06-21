@@ -1,7 +1,8 @@
 import { renderDoughnut, renderIncomeExpenseLine, renderPeriodComparisonBar } from './charts.js';
 import { formatDate as fmtDate } from './utils.js';
 import { getDefaultDateRange, resolveDateRangeFromUrl, computePeriodRange } from './date-range.js';
-import { pushDateRangeToUrl, replaceDateRangeInUrl, buildPageUrl } from './url-state.js';
+import { pushDateRangeToUrl, replaceDateRangeInUrl, pushAccountIdToUrl, replaceAccountIdInUrl, buildPageUrl } from './url-state.js';
+import { resolveAccountIdFromUrl } from './account-filter.js';
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => {
@@ -59,6 +60,7 @@ document.addEventListener('alpine:init', () => {
       await this.loadCategories();
       await this.loadCurrencies();
       this.applyDateRangeFromUrl(true);
+      this.applyAccountIdFromUrl(true);
       this.setupPageWatcher();
       await this.loadCurrentPageData();
       globalThis.addEventListener('popstate', async () => {
@@ -95,7 +97,7 @@ document.addEventListener('alpine:init', () => {
     navigateTo(page) {
       if (this.page === page) return;
       this.page = page;
-      globalThis.history.pushState({}, '', buildPageUrl(page, this.sharedDateRange).toString());
+      globalThis.history.pushState({}, '', buildPageUrl(page, this.sharedFilters).toString());
     },
 
     applyPageFromUrl() {
@@ -106,10 +108,21 @@ document.addEventListener('alpine:init', () => {
         this.page = page;
       }
       this.applyDateRangeFromUrl(false);
+      this.applyAccountIdFromUrl(false);
+    },
+
+    applyAccountIdFromUrl(shouldReplaceUrl) {
+      const accountId = resolveAccountIdFromUrl();
+      this.setSharedAccountId(accountId);
+      if (shouldReplaceUrl) replaceAccountIdInUrl(accountId);
     },
 
     get sharedDateRange() {
       return { from: this.dashFilters.from, to: this.dashFilters.to };
+    },
+
+    get sharedFilters() {
+      return { from: this.dashFilters.from, to: this.dashFilters.to, accountId: this.dashFilters.accountId };
     },
 
     applyDateRangeFromUrl(shouldReplaceUrl) {
@@ -124,6 +137,11 @@ document.addEventListener('alpine:init', () => {
       this.dashFilters.period = 'custom';
       this.filters.from = from;
       this.filters.to = to;
+    },
+
+    setSharedAccountId(accountId) {
+      this.dashFilters.accountId = accountId;
+      this.filters.accountId = accountId;
     },
 
     async api(path, opts = {}) {
@@ -156,6 +174,13 @@ document.addEventListener('alpine:init', () => {
       this.loadDashboard();
     },
 
+    onDashAccountChange() {
+      const accountId = this.dashFilters.accountId;
+      this.setSharedAccountId(accountId);
+      pushAccountIdToUrl(accountId);
+      this.loadDashboard();
+    },
+
     async applyDashPeriod(shouldLoad = true) {
       if (this.dashFilters.period === 'custom') {
         if (shouldLoad) this.loadDashboard();
@@ -171,9 +196,10 @@ document.addEventListener('alpine:init', () => {
     resetDashFilters() {
       const range = getDefaultDateRange();
       this.dashFilters = { period: 'custom', from: range.from, to: range.to, accountId: '', categoryIds: [], txType: 'all' };
-      this.filters = { ...this.filters, ...range };
+      this.filters = { ...this.filters, ...range, accountId: '' };
       this.groupBy = 'month';
       pushDateRangeToUrl(range);
+      pushAccountIdToUrl('');
       this.loadDashboard();
     },
 
@@ -181,6 +207,14 @@ document.addEventListener('alpine:init', () => {
       const { from, to } = this.filters;
       this.setSharedDateRange(from, to);
       pushDateRangeToUrl({ from, to });
+      this.transactions.offset = 0;
+      this.loadTransactions();
+    },
+
+    onTransactionAccountChange() {
+      const accountId = this.filters.accountId;
+      this.setSharedAccountId(accountId);
+      pushAccountIdToUrl(accountId);
       this.transactions.offset = 0;
       this.loadTransactions();
     },
@@ -637,9 +671,10 @@ document.addEventListener('alpine:init', () => {
     resetFilters() {
       const range = getDefaultDateRange();
       this.filters = { ...range, accountId: '', categoryId: '', search: '' };
-      this.dashFilters = { ...this.dashFilters, ...range };
+      this.dashFilters = { ...this.dashFilters, ...range, accountId: '' };
       this.transactions.offset = 0;
       pushDateRangeToUrl(range);
+      pushAccountIdToUrl('');
       this.loadTransactions();
     },
 

@@ -1,5 +1,5 @@
 /**
- * Shared helpers for synchronising the `from`/`to` date filters with the URL.
+ * Shared helpers for synchronising the date and account filters with the URL.
  */
 
 /**
@@ -16,12 +16,33 @@ export function writeDateRangeToUrl(url, { from, to }) {
 }
 
 /**
+ * Write the given account id into a URL's search params.
+ * Mutates the provided URL object.
+ * @param {URL} url
+ * @param {string} accountId
+ */
+export function writeAccountIdToUrl(url, accountId) {
+  if (accountId) url.searchParams.set('accountId', accountId);
+  else url.searchParams.delete('accountId');
+}
+
+/**
  * Replace the current URL's date range without adding a browser history entry.
  * @param {{ from: string, to: string }} range
  */
 export function replaceDateRangeInUrl(range) {
   const url = new URL(globalThis.location.href);
   writeDateRangeToUrl(url, range);
+  globalThis.history.replaceState({}, '', url.toString());
+}
+
+/**
+ * Replace the current URL's account id without adding a browser history entry.
+ * @param {string} accountId
+ */
+export function replaceAccountIdInUrl(accountId) {
+  const url = new URL(globalThis.location.href);
+  writeAccountIdToUrl(url, accountId);
   globalThis.history.replaceState({}, '', url.toString());
 }
 
@@ -36,15 +57,26 @@ export function pushDateRangeToUrl(range) {
 }
 
 /**
- * Build a new URL for navigating to a page while preserving the current date range.
+ * Push a new URL with the given account id, creating a browser history entry.
+ * @param {string} accountId
+ */
+export function pushAccountIdToUrl(accountId) {
+  const url = new URL(globalThis.location.href);
+  writeAccountIdToUrl(url, accountId);
+  globalThis.history.pushState({}, '', url.toString());
+}
+
+/**
+ * Build a new URL for navigating to a page while preserving the current filters.
  * @param {string} page
- * @param {{ from: string, to: string }} range
+ * @param {{ from: string, to: string, accountId: string }} filters
  * @returns {URL}
  */
-export function buildPageUrl(page, range) {
+export function buildPageUrl(page, { from, to, accountId }) {
   const url = new URL(globalThis.location.href);
   url.searchParams.delete('period');
   url.searchParams.set('page', page);
-  writeDateRangeToUrl(url, range);
+  writeDateRangeToUrl(url, { from, to });
+  writeAccountIdToUrl(url, accountId);
   return url;
 }

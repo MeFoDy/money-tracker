@@ -1,8 +1,4 @@
-## Purpose
-
-Define how date filters (`from`/`to`) and the account filter (`accountId`) are persisted in the URL, shared between Dashboard and Transactions tabs, and respected by drill-down drawers.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Date filters initialise from URL
 The system SHALL read `from` and `to` query parameters on application initialisation and use them as the active date range for both Dashboard and Transactions tabs.
@@ -46,7 +42,7 @@ The system SHALL keep `from` and `to` identical for Dashboard and Transactions t
 - **AND** the transaction list loads for that range
 
 ### Requirement: Reset restores defaults and updates URL
-The system SHALL provide a reset control that restores the default 3-month date range, clears the active account filter, and updates the URL accordingly.
+The system SHALL provide a reset control that restores the default 3-month date range and updates the URL accordingly.
 
 #### Scenario: User resets Dashboard filters
 - **GIVEN** the Dashboard has a custom date range and/or `accountId` in the URL

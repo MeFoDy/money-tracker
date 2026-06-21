@@ -50,7 +50,7 @@
               <input type="date" x-model="dashFilters.to" @change="onDashDateChange()" placeholder="До">
 
               <label class="visually-hidden" for="dash-account">Счёт</label>
-              <select id="dash-account" x-model="dashFilters.accountId" @change="loadDashboard()">
+              <select id="dash-account" x-model="dashFilters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = dashFilters.accountId })" @change="onDashAccountChange()">
                 <option value="">Все счета</option>
                 <template x-for="acc in accounts" :key="acc.id">
                   <option :value="acc.id" x-text="accLabel(acc)"></option>
@@ -211,7 +211,7 @@
           <div class="filters grid">
             <input type="date" x-model="filters.from" @change="onTransactionDateChange()" placeholder="От">
             <input type="date" x-model="filters.to" @change="onTransactionDateChange()" placeholder="До">
-            <select x-model="filters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = filters.accountId })" @change="loadTransactions()">
+            <select x-model="filters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = filters.accountId })" @change="onTransactionAccountChange()">
               <option value="">Все счета</option>
               <template x-for="acc in accounts" :key="acc.id">
                 <option :value="acc.id" x-text="accLabel(acc)"></option>
