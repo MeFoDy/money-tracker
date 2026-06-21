@@ -1,8 +1,9 @@
 import { renderDoughnut, renderIncomeExpenseLine, renderPeriodComparisonBar } from './charts.js';
 import { formatDate as fmtDate } from './utils.js';
 import { getDefaultDateRange, resolveDateRangeFromUrl, computePeriodRange } from './date-range.js';
-import { pushDateRangeToUrl, replaceDateRangeInUrl, pushAccountIdToUrl, replaceAccountIdInUrl, buildPageUrl } from './url-state.js';
+import { pushDateRangeToUrl, replaceDateRangeInUrl, pushAccountIdToUrl, replaceAccountIdInUrl, pushCategoryIdsToUrl, replaceCategoryIdsInUrl, buildPageUrl } from './url-state.js';
 import { resolveAccountIdFromUrl } from './account-filter.js';
+import { resolveCategoryIdsFromUrl } from './category-filter.js';
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => {
@@ -21,7 +22,7 @@ document.addEventListener('alpine:init', () => {
       categoryMap: {},
       accounts: [],
       accountMap: {},
-      filters: { from: '', to: '', accountId: '', categoryId: '', search: '' },
+      filters: { from: '', to: '', accountId: '', categoryIds: [], search: '' },
       dashFilters: { period: 'custom', from: '', to: '', accountId: '', categoryIds: [], txType: 'all' },
       groupBy: 'month',
       selectedIds: [],
@@ -46,6 +47,7 @@ document.addEventListener('alpine:init', () => {
       drawer: { open: false, title: '', transactions: [] },
       lineHidden: { income: false, expense: false, balance: false },
       categoryDropdownOpen: false,
+      txCategoryDropdownOpen: false,
       drawerSort: { column: 'tx_date', direction: 'desc' },
       drawerSearch: '',
       heatmapMode: 'expense',
@@ -61,6 +63,7 @@ document.addEventListener('alpine:init', () => {
       await this.loadCurrencies();
       this.applyDateRangeFromUrl(true);
       this.applyAccountIdFromUrl(true);
+      this.applyCategoryIdsFromUrl(true);
       this.setupPageWatcher();
       await this.loadCurrentPageData();
       globalThis.addEventListener('popstate', async () => {
@@ -109,6 +112,7 @@ document.addEventListener('alpine:init', () => {
       }
       this.applyDateRangeFromUrl(false);
       this.applyAccountIdFromUrl(false);
+      this.applyCategoryIdsFromUrl(false);
     },
 
     applyAccountIdFromUrl(shouldReplaceUrl) {
@@ -122,7 +126,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     get sharedFilters() {
-      return { from: this.dashFilters.from, to: this.dashFilters.to, accountId: this.dashFilters.accountId };
+      return { from: this.dashFilters.from, to: this.dashFilters.to, accountId: this.dashFilters.accountId, categoryIds: this.dashFilters.categoryIds };
     },
 
     applyDateRangeFromUrl(shouldReplaceUrl) {
@@ -142,6 +146,17 @@ document.addEventListener('alpine:init', () => {
     setSharedAccountId(accountId) {
       this.dashFilters.accountId = accountId;
       this.filters.accountId = accountId;
+    },
+
+    applyCategoryIdsFromUrl(shouldReplaceUrl) {
+      const categoryIds = resolveCategoryIdsFromUrl();
+      this.setSharedCategoryIds(categoryIds);
+      if (shouldReplaceUrl) replaceCategoryIdsInUrl(categoryIds);
+    },
+
+    setSharedCategoryIds(categoryIds) {
+      this.dashFilters.categoryIds = categoryIds;
+      this.filters.categoryIds = categoryIds;
     },
 
     async api(path, opts = {}) {
@@ -181,6 +196,13 @@ document.addEventListener('alpine:init', () => {
       this.loadDashboard();
     },
 
+    onDashCategoryChange() {
+      const categoryIds = this.dashFilters.categoryIds;
+      this.setSharedCategoryIds(categoryIds);
+      pushCategoryIdsToUrl(categoryIds);
+      this.loadDashboard();
+    },
+
     async applyDashPeriod(shouldLoad = true) {
       if (this.dashFilters.period === 'custom') {
         if (shouldLoad) this.loadDashboard();
@@ -196,10 +218,11 @@ document.addEventListener('alpine:init', () => {
     resetDashFilters() {
       const range = getDefaultDateRange();
       this.dashFilters = { period: 'custom', from: range.from, to: range.to, accountId: '', categoryIds: [], txType: 'all' };
-      this.filters = { ...this.filters, ...range, accountId: '' };
+      this.filters = { ...this.filters, ...range, accountId: '', categoryIds: [] };
       this.groupBy = 'month';
       pushDateRangeToUrl(range);
       pushAccountIdToUrl('');
+      pushCategoryIdsToUrl([]);
       this.loadDashboard();
     },
 
@@ -215,6 +238,14 @@ document.addEventListener('alpine:init', () => {
       const accountId = this.filters.accountId;
       this.setSharedAccountId(accountId);
       pushAccountIdToUrl(accountId);
+      this.transactions.offset = 0;
+      this.loadTransactions();
+    },
+
+    onTransactionCategoryChange() {
+      const categoryIds = this.filters.categoryIds;
+      this.setSharedCategoryIds(categoryIds);
+      pushCategoryIdsToUrl(categoryIds);
       this.transactions.offset = 0;
       this.loadTransactions();
     },
@@ -511,10 +542,9 @@ document.addEventListener('alpine:init', () => {
 
     async openDrawerForPeriod(item) {
       const { from, to } = this.periodToDateRange(item.period, this.groupBy);
-      const q = new URLSearchParams();
+      const q = this.buildDrawerQuery();
       q.set('from', from);
       q.set('to', to);
-      if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
       const periodLabel = this.formatPeriodLabel(item.period, this.groupBy);
@@ -528,6 +558,7 @@ document.addEventListener('alpine:init', () => {
       if (this.dashFilters.from) q.set('from', this.dashFilters.from);
       if (this.dashFilters.to) q.set('to', this.dashFilters.to);
       if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
+      if (this.dashFilters.categoryIds?.length > 0) q.set('categoryIds', this.dashFilters.categoryIds.join(','));
       for (const [key, value] of Object.entries(extraParams)) {
         q.set(key, value);
       }
@@ -535,9 +566,13 @@ document.addEventListener('alpine:init', () => {
       return q;
     },
 
+    drawerCategoryIds(categoryId) {
+      return [categoryId === null || categoryId === undefined ? 'null' : String(categoryId)];
+    },
+
     async openDrawerForCategory(item) {
-      const categoryId = item.category_id !== undefined && item.category_id !== null ? item.category_id : 'null';
-      const q = this.buildDrawerQuery({ categoryId });
+      const categoryId = item.category_id === undefined ? null : item.category_id;
+      const q = this.buildDrawerQuery({ categoryIds: this.drawerCategoryIds(categoryId).join(',') });
       const data = await this.api('/transactions?' + q.toString());
       this.drawer = { open: true, title: `Транзакции: ${item.name}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
@@ -545,8 +580,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     async openDrawerForComparison(item) {
-      const categoryId = item.category_id !== undefined && item.category_id !== null ? item.category_id : 'null';
-      const q = this.buildDrawerQuery({ categoryId, type: 'expense' });
+      const categoryId = item.category_id === undefined ? null : item.category_id;
+      const q = this.buildDrawerQuery({ categoryIds: this.drawerCategoryIds(categoryId).join(','), type: 'expense' });
       const data = await this.api('/transactions?' + q.toString());
       this.drawer = { open: true, title: `Транзакции: ${item.name}`, transactions: data.rows };
       this.drawerSort = { column: 'tx_date', direction: 'desc' };
@@ -554,10 +589,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     async openDrawerForDay(date) {
-      const q = new URLSearchParams();
+      const q = this.buildDrawerQuery();
       q.set('from', date);
       q.set('to', date);
-      if (this.dashFilters.accountId) q.set('accountId', this.dashFilters.accountId);
       q.set('limit', '100');
       const data = await this.api('/transactions?' + q.toString());
       this.drawer = { open: true, title: `Транзакции за ${fmtDate(date)}`, transactions: data.rows };
@@ -645,7 +679,7 @@ document.addEventListener('alpine:init', () => {
         q.set('from', from);
         q.set('to', to);
         if (this.filters.accountId) q.set('accountId', this.filters.accountId);
-        if (this.filters.categoryId !== '') q.set('categoryId', this.filters.categoryId);
+        if (this.filters.categoryIds?.length > 0) q.set('categoryIds', this.filters.categoryIds.join(','));
         if (this.filters.search) q.set('search', this.filters.search);
         q.set('limit', this.transactions.limit);
         q.set('offset', this.transactions.offset);
@@ -654,7 +688,7 @@ document.addEventListener('alpine:init', () => {
         sq.set('from', from);
         sq.set('to', to);
         if (this.filters.accountId) sq.set('accountId', this.filters.accountId);
-        if (this.filters.categoryId !== '') sq.set('categoryId', this.filters.categoryId);
+        if (this.filters.categoryIds?.length > 0) sq.set('categoryIds', this.filters.categoryIds.join(','));
         if (this.filters.search) sq.set('search', this.filters.search);
 
         try {
@@ -670,11 +704,12 @@ document.addEventListener('alpine:init', () => {
 
     resetFilters() {
       const range = getDefaultDateRange();
-      this.filters = { ...range, accountId: '', categoryId: '', search: '' };
-      this.dashFilters = { ...this.dashFilters, ...range, accountId: '' };
+      this.filters = { ...range, accountId: '', categoryIds: [], search: '' };
+      this.dashFilters = { ...this.dashFilters, ...range, accountId: '', categoryIds: [] };
       this.transactions.offset = 0;
       pushDateRangeToUrl(range);
       pushAccountIdToUrl('');
+      pushCategoryIdsToUrl([]);
       this.loadTransactions();
     },
 

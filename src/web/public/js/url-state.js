@@ -27,6 +27,17 @@ export function writeAccountIdToUrl(url, accountId) {
 }
 
 /**
+ * Write the given category ids into a URL's search params.
+ * Mutates the provided URL object.
+ * @param {URL} url
+ * @param {string[]} categoryIds
+ */
+export function writeCategoryIdsToUrl(url, categoryIds) {
+  if (categoryIds && categoryIds.length > 0) url.searchParams.set('categoryIds', categoryIds.join(','));
+  else url.searchParams.delete('categoryIds');
+}
+
+/**
  * Replace the current URL's date range without adding a browser history entry.
  * @param {{ from: string, to: string }} range
  */
@@ -43,6 +54,16 @@ export function replaceDateRangeInUrl(range) {
 export function replaceAccountIdInUrl(accountId) {
   const url = new URL(globalThis.location.href);
   writeAccountIdToUrl(url, accountId);
+  globalThis.history.replaceState({}, '', url.toString());
+}
+
+/**
+ * Replace the current URL's category ids without adding a browser history entry.
+ * @param {string[]} categoryIds
+ */
+export function replaceCategoryIdsInUrl(categoryIds) {
+  const url = new URL(globalThis.location.href);
+  writeCategoryIdsToUrl(url, categoryIds);
   globalThis.history.replaceState({}, '', url.toString());
 }
 
@@ -67,16 +88,27 @@ export function pushAccountIdToUrl(accountId) {
 }
 
 /**
+ * Push a new URL with the given category ids, creating a browser history entry.
+ * @param {string[]} categoryIds
+ */
+export function pushCategoryIdsToUrl(categoryIds) {
+  const url = new URL(globalThis.location.href);
+  writeCategoryIdsToUrl(url, categoryIds);
+  globalThis.history.pushState({}, '', url.toString());
+}
+
+/**
  * Build a new URL for navigating to a page while preserving the current filters.
  * @param {string} page
- * @param {{ from: string, to: string, accountId: string }} filters
+ * @param {{ from: string, to: string, accountId: string, categoryIds: string[] }} filters
  * @returns {URL}
  */
-export function buildPageUrl(page, { from, to, accountId }) {
+export function buildPageUrl(page, { from, to, accountId, categoryIds }) {
   const url = new URL(globalThis.location.href);
   url.searchParams.delete('period');
   url.searchParams.set('page', page);
   writeDateRangeToUrl(url, { from, to });
   writeAccountIdToUrl(url, accountId);
+  writeCategoryIdsToUrl(url, categoryIds);
   return url;
 }

@@ -61,9 +61,14 @@
                   <span x-text="dashFilters.categoryIds.length ? `Категорий: ${dashFilters.categoryIds.length}` : 'Все категории'"></span>
                 </button>
                 <div id="category-dropdown" class="multi-select-dropdown" :class="{ 'open': categoryDropdownOpen }">
+                  <label class="multi-select-item">
+                    <input type="checkbox" value="null" x-model="dashFilters.categoryIds" @change="onDashCategoryChange()">
+                    <span class="color-swatch small" style="background-color: #888888"></span>
+                    <span>Без категории</span>
+                  </label>
                   <template x-for="cat in categories" :key="cat.id">
                     <label class="multi-select-item">
-                      <input type="checkbox" :value="cat.id" x-model="dashFilters.categoryIds" @change="loadDashboard()">
+                      <input type="checkbox" :value="String(cat.id)" x-model="dashFilters.categoryIds" @change="onDashCategoryChange()">
                       <span class="color-swatch small" :style="'background-color: ' + (cat.color || '#cccccc')"></span>
                       <span x-text="cat.name"></span>
                     </label>
@@ -208,7 +213,7 @@
               <p class="big" x-text="formatMoney((periodStats.income || 0) - (periodStats.expense || 0))"></p>
             </article>
           </div>
-          <div class="filters grid">
+          <div class="filter-row filter-row-transactions grid">
             <input type="date" x-model="filters.from" @change="onTransactionDateChange()" placeholder="От">
             <input type="date" x-model="filters.to" @change="onTransactionDateChange()" placeholder="До">
             <select x-model="filters.accountId" x-effect="accounts.length; $nextTick(() => { $el.value = filters.accountId })" @change="onTransactionAccountChange()">
@@ -217,13 +222,25 @@
                 <option :value="acc.id" x-text="accLabel(acc)"></option>
               </template>
             </select>
-            <select x-model="filters.categoryId" x-effect="categories.length; $nextTick(() => { $el.value = filters.categoryId })" @change="loadTransactions()">
-              <option value="">Все категории</option>
-              <option value="null">Без категории</option>
-              <template x-for="cat in categories" :key="cat.id">
-                <option :value="cat.id" x-text="cat.name"></option>
-              </template>
-            </select>
+            <div class="multi-select-wrap" @click.window="if (!$event.target.closest('.multi-select-wrap')) txCategoryDropdownOpen = false">
+              <button type="button" @click="txCategoryDropdownOpen = !txCategoryDropdownOpen" :aria-expanded="txCategoryDropdownOpen" aria-haspopup="true" aria-controls="tx-category-dropdown">
+                <span x-text="filters.categoryIds.length ? `Категорий: ${filters.categoryIds.length}` : 'Все категории'"></span>
+              </button>
+              <div id="tx-category-dropdown" class="multi-select-dropdown" :class="{ 'open': txCategoryDropdownOpen }">
+                <label class="multi-select-item">
+                  <input type="checkbox" value="null" x-model="filters.categoryIds" @change="onTransactionCategoryChange()">
+                  <span class="color-swatch small" style="background-color: #888888"></span>
+                  <span>Без категории</span>
+                </label>
+                <template x-for="cat in categories" :key="cat.id">
+                  <label class="multi-select-item">
+                    <input type="checkbox" :value="String(cat.id)" x-model="filters.categoryIds" @change="onTransactionCategoryChange()">
+                    <span class="color-swatch small" :style="'background-color: ' + (cat.color || '#cccccc')"></span>
+                    <span x-text="cat.name"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
             <input type="text" x-model="filters.search" @input.debounce.300ms="loadTransactions()" placeholder="Поиск по описанию...">
             <button class="secondary outline" @click="resetFilters()">Сбросить</button>
           </div>
@@ -262,13 +279,7 @@
                     <td :class="tx.is_pending ? 'pending' : tx.tx_type" x-text="formatMoney(tx.amount, tx.currency)"></td>
                     <td x-text="tx.currency"></td>
                     <td>
-                      <span
-                        class="account-chip"
-                        x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id"
-                        @mouseenter="showAccTooltip($event, tx.account_id)"
-                        @mousemove="_positionTooltip($refs.accTooltip, $event)"
-                        @mouseleave="hideAccTooltip()"
-                      ></span>
+                      <span class="account-chip" x-text="accountMap[tx.account_id]?.account_number || '#'+tx.account_id" @mouseenter="showAccTooltip($event, tx.account_id)" @mousemove="_positionTooltip($refs.accTooltip, $event)" @mouseleave="hideAccTooltip()"></span>
                     </td>
                     <td>
                       <select x-model="tx.category_id" @change="updateTxCategory(tx.id, $event.target.value)">
@@ -291,347 +302,334 @@
                 </template>
               </tbody>
             </table>
-            </div>
-          </figure>
-
-          <div class="pagination">
-            <button class="outline" @click="prevPage()" :disabled="transactions.offset <= 0">← Назад</button>
-            <span x-text="(transactions.offset||0)+1 + ' — ' + Math.min((transactions.offset||0)+(transactions.limit||50), transactions.total) + ' из ' + transactions.total"></span>
-            <button class="outline" @click="nextPage()" :disabled="(transactions.offset||0)+(transactions.limit||50) >= transactions.total">Вперед →</button>
-          </div>
         </div>
-      </template>
+        </figure>
 
-      <!-- Categories -->
-      <template x-if="page === 'categories'">
-        <div>
-          <h3 class="page-title">Категории</h3>
-          <div class="category-form">
-            <input type="text" x-model="newCategoryName" placeholder="Название новой категории">
-            <div class="color-palette">
-              <template x-for="c in categoryColors" :key="c.value">
-                <button type="button" class="color-swatch" :class="{ 'active': newCategoryColor === c.value }" :style="'background-color: ' + c.value" :title="c.name" @click="newCategoryColor = c.value"></button>
-              </template>
-            </div>
-            <button @click="addCategory()">Добавить</button>
-          </div>
-          <figure class="data-table-wrap category-table-wrap">
-            <div class="data-table-scroll">
-            <table role="grid" class="data-table category-table">
-              <thead>
-                <tr>
-                  <th>Цвет</th>
-                  <th>Название</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="cat in categories" :key="cat.id">
-                  <tr>
-                    <td>
-                      <div class="color-palette">
-                        <template x-for="c in categoryColors" :key="c.value">
-                          <button type="button" class="color-swatch small" :class="{ 'active': (cat.color || '#cccccc') === c.value }" :style="'background-color: ' + c.value" :title="c.name" @click="updateCategoryColor(cat.id, c.value)"></button>
-                        </template>
-                      </div>
-                    </td>
-                    <td x-text="cat.name"></td>
-                    <td><button class="secondary outline square small" @click="deleteCategory(cat.id)">×</button></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            </div>
-          </figure>
-
-          <h4 class="page-title">Правила авто-категоризации</h4>
-          <div class="rule-toolbar">
-            <button @click="openRuleDrawer()">Добавить правило</button>
-          </div>
-
-          <figure class="data-table-wrap">
-            <div class="data-table-scroll">
-            <table role="grid" class="data-table">
-              <thead>
-                <tr>
-                  <th>Категория</th>
-                  <th>Описание</th>
-                  <th>Сумма</th>
-                  <th>Счёт</th>
-                  <th>Валюта</th>
-                  <th>Приоритет</th>
-                  <th>Активно</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="rule in categoryRules" :key="rule.id">
-                  <tr>
-                    <td>
-                      <span class="category-badge" :style="'background-color: ' + (categoryMap[rule.categoryId]?.color || '#555')" x-text="rule.categoryName || categoryMap[rule.categoryId]?.name || '—'"></span>
-                    </td>
-                    <td x-text="rule.descriptionPattern || '—'"></td>
-                    <td>
-                      <span x-show="rule.minAmount !== null || rule.maxAmount !== null">
-                        <span x-show="rule.minAmount !== null" x-text="'≥ ' + formatMoney(rule.minAmount)"></span>
-                        <span x-show="rule.minAmount !== null && rule.maxAmount !== null">, </span>
-                        <span x-show="rule.maxAmount !== null" x-text="'≤ ' + formatMoney(rule.maxAmount)"></span>
-                      </span>
-                      <span x-show="rule.minAmount === null && rule.maxAmount === null">—</span>
-                    </td>
-                    <td x-text="rule.accountName || rule.accountNumber || 'Любой'"></td>
-                    <td x-text="rule.currency || 'Любая'"></td>
-                    <td x-text="rule.priority"></td>
-                    <td>
-                      <input type="checkbox" :checked="rule.isActive" @change="toggleRuleActive(rule)">
-                    </td>
-                    <td class="actions-cell">
-                      <button class="secondary outline square" @click="openRuleDrawer(rule)" title="Редактировать">✎</button>
-                      <button class="secondary outline square" @click="deleteCategoryRule(rule.id)" title="Удалить">×</button>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            </div>
-          </figure>
+        <div class="pagination">
+          <button class="outline" @click="prevPage()" :disabled="transactions.offset <= 0">← Назад</button>
+          <span x-text="(transactions.offset||0)+1 + ' — ' + Math.min((transactions.offset||0)+(transactions.limit||50), transactions.total) + ' из ' + transactions.total"></span>
+          <button class="outline" @click="nextPage()" :disabled="(transactions.offset||0)+(transactions.limit||50) >= transactions.total">Вперед →</button>
         </div>
-      </template>
+  </div>
+  </template>
 
-      <!-- Accounts -->
-      <template x-if="page === 'accounts'">
-        <div>
-          <h3 class="page-title">Счета</h3>
-          <figure class="data-table-wrap">
-            <table role="grid" class="data-table accounts-table">
-              <thead>
-                <tr>
-                  <th>Номер счёта</th>
-                  <th>Название из выписки</th>
-                  <th>Валюта</th>
-                  <th>Комментарий</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="acc in accounts" :key="acc.id">
-                  <tr>
-                    <td x-text="acc.account_number"></td>
-                    <td x-text="acc.name || '—'"></td>
-                    <td x-text="acc.currency"></td>
-                    <td>
-                      <template x-if="accountEdit.id !== acc.id">
-                        <span
-                          class="account-comment-text"
-                          @click="startEditAccount(acc)"
-                          :title="acc.comment ? '' : 'Нажмите, чтобы добавить комментарий'"
-                          x-text="acc.comment || ''"
-                        ></span>
-                      </template>
-                      <template x-if="accountEdit.id === acc.id">
-                        <input
-                          type="text"
-                          class="account-comment-input"
-                          x-model="accountEdit.comment"
-                          placeholder="Комментарий..."
-                          @keydown.enter="saveAccountComment(acc)"
-                          @keydown.escape="cancelEditAccount()"
-                          x-init="$nextTick(() => $el.focus())"
-                        >
-                      </template>
-                    </td>
-                    <td class="actions-cell">
-                      <template x-if="accountEdit.id === acc.id">
-                        <span>
-                          <button class="outline small" @click="saveAccountComment(acc)">Сохранить</button>
-                          <button class="secondary outline small" @click="cancelEditAccount()">Отмена</button>
-                        </span>
-                      </template>
-                      <template x-if="accountEdit.id !== acc.id">
-                        <button class="secondary outline square small" @click="startEditAccount(acc)" title="Редактировать комментарий">✎</button>
-                      </template>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </figure>
-        </div>
-      </template>
-
-      <!-- Upload -->
-      <template x-if="page === 'upload'">
-        <div>
-          <h3 class="page-title">Загрузка выписки</h3>
-          <div class="dropzone" @dragover.prevent @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()">
-            <p class="dropzone-icon">⬆</p>
-            <p>Перетащите CSV-файл сюда или кликните для выбора</p>
-            <input type="file" accept=".csv" x-ref="fileInput" @change="handleFileSelect($event)" class="hidden">
-          </div>
-
-          <!-- Preview Mode -->
-          <template x-if="isPreviewMode">
-            <div>
-              <article class="upload-result">
-                <header>Предпросмотр импорта</header>
-                <div class="grid result-grid">
-                  <div class="result-item">
-                    <span class="result-label">Новых транзакций</span>
-                    <span class="result-value" x-text="uploadPreview.stats.newCount"></span>
-                  </div>
-                  <div class="result-item">
-                    <span class="result-label">Дублей (будет пропущено)</span>
-                    <span class="result-value" x-text="uploadPreview.stats.duplicateCount"></span>
-                  </div>
-                </div>
-              </article>
-
-          <figure class="data-table-wrap">
-            <div class="data-table-scroll">
-            <table role="grid" class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Дата</th>
-                      <th>Сумма</th>
-                      <th>Валюта</th>
-                      <th>Счет</th>
-                      <th>Описание</th>
-                      <th>Категория</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="(tx, index) in uploadPreview.transactions" :key="index">
-                      <tr :class="{ 'auto-categorized': tx.appliedRuleId }">
-                        <td x-text="formatDate(tx.txDate)"></td>
-                        <td :class="tx.isPending ? 'pending' : tx.txType" x-text="formatMoney(tx.amount, tx.currency)"></td>
-                        <td x-text="tx.currency"></td>
-                        <td x-text="accountMap[tx.accountId]?.account_number || '#'+tx.accountId"></td>
-                        <td x-text="tx.description"></td>
-                        <td>
-                          <select x-model="tx.finalCategoryId" @change="updatePreviewCategory(index, $event.target.value)">
-                            <option value="">—</option>
-                            <template x-for="cat in categories" :key="cat.id">
-                              <option :value="cat.id" x-text="cat.name" :selected="cat.id == tx.finalCategoryId"></option>
-                            </template>
-                          </select>
-                          <span x-show="tx.appliedRuleId" class="auto-badge" title="Автоматически переразмечено правилом">Авто</span>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-              </figure>
-
-              <div class="preview-actions">
-                <button @click="confirmUpload()">Сохранить</button>
-                <button class="outline" @click="cancelUpload()">Отмена</button>
-              </div>
-            </div>
-          </template>
-
-          <!-- Result Mode -->
-          <template x-if="!isPreviewMode && uploadResult">
-            <article class="upload-result">
-              <header>Результат импорта</header>
-              <div class="grid result-grid">
-                <div class="result-item">
-                  <span class="result-label">Импортировано</span>
-                  <span class="result-value" x-text="uploadResult.imported"></span>
-                </div>
-                <div class="result-item">
-                  <span class="result-label">Пропущено дублей</span>
-                  <span class="result-value" x-text="uploadResult.duplicatesSkipped"></span>
-                </div>
-                <div class="result-item">
-                  <span class="result-label">Обновлено из ожидания</span>
-                  <span class="result-value" x-text="uploadResult.updatedFromPending"></span>
-                </div>
-              </div>
-            </article>
+  <!-- Categories -->
+  <template x-if="page === 'categories'">
+    <div>
+      <h3 class="page-title">Категории</h3>
+      <div class="category-form">
+        <input type="text" x-model="newCategoryName" placeholder="Название новой категории">
+        <div class="color-palette">
+          <template x-for="c in categoryColors" :key="c.value">
+            <button type="button" class="color-swatch" :class="{ 'active': newCategoryColor === c.value }" :style="'background-color: ' + c.value" :title="c.name" @click="newCategoryColor = c.value"></button>
           </template>
         </div>
-      </template>
-    </main>
-
-    <!-- Rule Drawer -->
-    <div class="drawer-backdrop" :class="{ 'open': ruleDrawer.open }" @click="closeRuleDrawer()" aria-hidden="true"></div>
-    <aside class="drawer" :class="{ 'open': ruleDrawer.open }" role="dialog" aria-modal="true" aria-labelledby="rule-drawer-title" tabindex="-1" @keydown.escape.window="closeRuleDrawer()" x-trap="ruleDrawer.open">
-      <header class="drawer-header">
-        <h4 id="rule-drawer-title" x-text="ruleDrawer.mode === 'edit' ? 'Редактирование правила' : 'Новое правило'"></h4>
-        <button class="secondary outline square small" @click="closeRuleDrawer()" aria-label="Закрыть">×</button>
-      </header>
-      <div class="drawer-content">
-        <div class="rule-form">
-          <p>
-            <span><span class="warn">Если</span> в описании есть подстрока</span>
-            <input type="text" x-model="ruleDrawer.rule.descriptionPattern" placeholder="Описание содержит...">
-          </p>
-          <p>
-            <span>Сумма составляет от</span>
-            <input type="number" x-model="ruleDrawer.rule.minAmount" placeholder="Мин. сумма">
-            до
-            <input type="number" x-model="ruleDrawer.rule.maxAmount" placeholder="Макс. сумма">
-          </p>
-          <p>
-            <span>в валюте</span>
-            <select x-model="ruleDrawer.rule.currency">
-              <option value="">Любая валюта</option>
-              <template x-for="cur in currencies" :key="cur">
-                <option :value="cur" x-text="currencyLabel(cur)"></option>
-              </template>
-            </select>
-          </p>
-          <p>
-            <span>Транзакция на счёте</span>
-            <select x-model="ruleDrawer.rule.accountId">
-              <option value="">Любой счёт</option>
-              <template x-for="acc in accounts" :key="acc.id">
-                <option :value="acc.id" x-text="accLabel(acc)"></option>
-              </template>
-            </select>
-          </p>
-          <hr>
-          <p>
-            <span><span class="warn">То</span> применить категорию</span>
-            <select x-model="ruleDrawer.rule.categoryId">
-              <option value="">Категория</option>
+        <button @click="addCategory()">Добавить</button>
+      </div>
+      <figure class="data-table-wrap category-table-wrap">
+        <div class="data-table-scroll">
+          <table role="grid" class="data-table category-table">
+            <thead>
+              <tr>
+                <th>Цвет</th>
+                <th>Название</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
               <template x-for="cat in categories" :key="cat.id">
-                <option :value="cat.id" x-text="cat.name"></option>
+                <tr>
+                  <td>
+                    <div class="color-palette">
+                      <template x-for="c in categoryColors" :key="c.value">
+                        <button type="button" class="color-swatch small" :class="{ 'active': (cat.color || '#cccccc') === c.value }" :style="'background-color: ' + c.value" :title="c.name" @click="updateCategoryColor(cat.id, c.value)"></button>
+                      </template>
+                    </div>
+                  </td>
+                  <td x-text="cat.name"></td>
+                  <td><button class="secondary outline square small" @click="deleteCategory(cat.id)">×</button></td>
+                </tr>
               </template>
-            </select>
-          </p>
-          <p>
-            <span>с приоритетом</span>
-            <input type="number" x-model="ruleDrawer.rule.priority" placeholder="Приоритет">
-          </p>
-          <label class="checkbox-label">
-            <input type="checkbox" x-model="ruleDrawer.rule.isActive"> Активно
-          </label>
-          <div class="drawer-actions">
-            <button @click="saveCategoryRule()" :disabled="!ruleDrawer.rule.categoryId">Сохранить</button>
-            <button class="outline" @click="closeRuleDrawer()">Отмена</button>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+
+      <h4 class="page-title">Правила авто-категоризации</h4>
+      <div class="rule-toolbar">
+        <button @click="openRuleDrawer()">Добавить правило</button>
+      </div>
+
+      <figure class="data-table-wrap">
+        <div class="data-table-scroll">
+          <table role="grid" class="data-table">
+            <thead>
+              <tr>
+                <th>Категория</th>
+                <th>Описание</th>
+                <th>Сумма</th>
+                <th>Счёт</th>
+                <th>Валюта</th>
+                <th>Приоритет</th>
+                <th>Активно</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="rule in categoryRules" :key="rule.id">
+                <tr>
+                  <td>
+                    <span class="category-badge" :style="'background-color: ' + (categoryMap[rule.categoryId]?.color || '#555')" x-text="rule.categoryName || categoryMap[rule.categoryId]?.name || '—'"></span>
+                  </td>
+                  <td x-text="rule.descriptionPattern || '—'"></td>
+                  <td>
+                    <span x-show="rule.minAmount !== null || rule.maxAmount !== null">
+                      <span x-show="rule.minAmount !== null" x-text="'≥ ' + formatMoney(rule.minAmount)"></span>
+                      <span x-show="rule.minAmount !== null && rule.maxAmount !== null">, </span>
+                      <span x-show="rule.maxAmount !== null" x-text="'≤ ' + formatMoney(rule.maxAmount)"></span>
+                    </span>
+                    <span x-show="rule.minAmount === null && rule.maxAmount === null">—</span>
+                  </td>
+                  <td x-text="rule.accountName || rule.accountNumber || 'Любой'"></td>
+                  <td x-text="rule.currency || 'Любая'"></td>
+                  <td x-text="rule.priority"></td>
+                  <td>
+                    <input type="checkbox" :checked="rule.isActive" @change="toggleRuleActive(rule)">
+                  </td>
+                  <td class="actions-cell">
+                    <button class="secondary outline square" @click="openRuleDrawer(rule)" title="Редактировать">✎</button>
+                    <button class="secondary outline square" @click="deleteCategoryRule(rule.id)" title="Удалить">×</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+    </div>
+  </template>
+
+  <!-- Accounts -->
+  <template x-if="page === 'accounts'">
+    <div>
+      <h3 class="page-title">Счета</h3>
+      <figure class="data-table-wrap">
+        <table role="grid" class="data-table accounts-table">
+          <thead>
+            <tr>
+              <th>Номер счёта</th>
+              <th>Название из выписки</th>
+              <th>Валюта</th>
+              <th>Комментарий</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="acc in accounts" :key="acc.id">
+              <tr>
+                <td x-text="acc.account_number"></td>
+                <td x-text="acc.name || '—'"></td>
+                <td x-text="acc.currency"></td>
+                <td>
+                  <template x-if="accountEdit.id !== acc.id">
+                    <span class="account-comment-text" @click="startEditAccount(acc)" :title="acc.comment ? '' : 'Нажмите, чтобы добавить комментарий'" x-text="acc.comment || ''"></span>
+                  </template>
+                  <template x-if="accountEdit.id === acc.id">
+                    <input type="text" class="account-comment-input" x-model="accountEdit.comment" placeholder="Комментарий..." @keydown.enter="saveAccountComment(acc)" @keydown.escape="cancelEditAccount()" x-init="$nextTick(() => $el.focus())">
+                  </template>
+                </td>
+                <td class="actions-cell">
+                  <template x-if="accountEdit.id === acc.id">
+                    <span>
+                      <button class="outline small" @click="saveAccountComment(acc)">Сохранить</button>
+                      <button class="secondary outline small" @click="cancelEditAccount()">Отмена</button>
+                    </span>
+                  </template>
+                  <template x-if="accountEdit.id !== acc.id">
+                    <button class="secondary outline square small" @click="startEditAccount(acc)" title="Редактировать комментарий">✎</button>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </figure>
+    </div>
+  </template>
+
+  <!-- Upload -->
+  <template x-if="page === 'upload'">
+    <div>
+      <h3 class="page-title">Загрузка выписки</h3>
+      <div class="dropzone" @dragover.prevent @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()">
+        <p class="dropzone-icon">⬆</p>
+        <p>Перетащите CSV-файл сюда или кликните для выбора</p>
+        <input type="file" accept=".csv" x-ref="fileInput" @change="handleFileSelect($event)" class="hidden">
+      </div>
+
+      <!-- Preview Mode -->
+      <template x-if="isPreviewMode">
+        <div>
+          <article class="upload-result">
+            <header>Предпросмотр импорта</header>
+            <div class="grid result-grid">
+              <div class="result-item">
+                <span class="result-label">Новых транзакций</span>
+                <span class="result-value" x-text="uploadPreview.stats.newCount"></span>
+              </div>
+              <div class="result-item">
+                <span class="result-label">Дублей (будет пропущено)</span>
+                <span class="result-value" x-text="uploadPreview.stats.duplicateCount"></span>
+              </div>
+            </div>
+          </article>
+
+          <figure class="data-table-wrap">
+            <div class="data-table-scroll">
+              <table role="grid" class="data-table">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>Сумма</th>
+                    <th>Валюта</th>
+                    <th>Счет</th>
+                    <th>Описание</th>
+                    <th>Категория</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(tx, index) in uploadPreview.transactions" :key="index">
+                    <tr :class="{ 'auto-categorized': tx.appliedRuleId }">
+                      <td x-text="formatDate(tx.txDate)"></td>
+                      <td :class="tx.isPending ? 'pending' : tx.txType" x-text="formatMoney(tx.amount, tx.currency)"></td>
+                      <td x-text="tx.currency"></td>
+                      <td x-text="accountMap[tx.accountId]?.account_number || '#'+tx.accountId"></td>
+                      <td x-text="tx.description"></td>
+                      <td>
+                        <select x-model="tx.finalCategoryId" @change="updatePreviewCategory(index, $event.target.value)">
+                          <option value="">—</option>
+                          <template x-for="cat in categories" :key="cat.id">
+                            <option :value="cat.id" x-text="cat.name" :selected="cat.id == tx.finalCategoryId"></option>
+                          </template>
+                        </select>
+                        <span x-show="tx.appliedRuleId" class="auto-badge" title="Автоматически переразмечено правилом">Авто</span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </figure>
+
+          <div class="preview-actions">
+            <button @click="confirmUpload()">Сохранить</button>
+            <button class="outline" @click="cancelUpload()">Отмена</button>
           </div>
+        </div>
+      </template>
+
+      <!-- Result Mode -->
+      <template x-if="!isPreviewMode && uploadResult">
+        <article class="upload-result">
+          <header>Результат импорта</header>
+          <div class="grid result-grid">
+            <div class="result-item">
+              <span class="result-label">Импортировано</span>
+              <span class="result-value" x-text="uploadResult.imported"></span>
+            </div>
+            <div class="result-item">
+              <span class="result-label">Пропущено дублей</span>
+              <span class="result-value" x-text="uploadResult.duplicatesSkipped"></span>
+            </div>
+            <div class="result-item">
+              <span class="result-label">Обновлено из ожидания</span>
+              <span class="result-value" x-text="uploadResult.updatedFromPending"></span>
+            </div>
+          </div>
+        </article>
+      </template>
+    </div>
+  </template>
+  </main>
+
+  <!-- Rule Drawer -->
+  <div class="drawer-backdrop" :class="{ 'open': ruleDrawer.open }" @click="closeRuleDrawer()" aria-hidden="true"></div>
+  <aside class="drawer" :class="{ 'open': ruleDrawer.open }" role="dialog" aria-modal="true" aria-labelledby="rule-drawer-title" tabindex="-1" @keydown.escape.window="closeRuleDrawer()" x-trap="ruleDrawer.open">
+    <header class="drawer-header">
+      <h4 id="rule-drawer-title" x-text="ruleDrawer.mode === 'edit' ? 'Редактирование правила' : 'Новое правило'"></h4>
+      <button class="secondary outline square small" @click="closeRuleDrawer()" aria-label="Закрыть">×</button>
+    </header>
+    <div class="drawer-content">
+      <div class="rule-form">
+        <p>
+          <span><span class="warn">Если</span> в описании есть подстрока</span>
+          <input type="text" x-model="ruleDrawer.rule.descriptionPattern" placeholder="Описание содержит...">
+        </p>
+        <p>
+          <span>Сумма составляет от</span>
+          <input type="number" x-model="ruleDrawer.rule.minAmount" placeholder="Мин. сумма">
+          до
+          <input type="number" x-model="ruleDrawer.rule.maxAmount" placeholder="Макс. сумма">
+        </p>
+        <p>
+          <span>в валюте</span>
+          <select x-model="ruleDrawer.rule.currency">
+            <option value="">Любая валюта</option>
+            <template x-for="cur in currencies" :key="cur">
+              <option :value="cur" x-text="currencyLabel(cur)"></option>
+            </template>
+          </select>
+        </p>
+        <p>
+          <span>Транзакция на счёте</span>
+          <select x-model="ruleDrawer.rule.accountId">
+            <option value="">Любой счёт</option>
+            <template x-for="acc in accounts" :key="acc.id">
+              <option :value="acc.id" x-text="accLabel(acc)"></option>
+            </template>
+          </select>
+        </p>
+        <hr>
+        <p>
+          <span><span class="warn">То</span> применить категорию</span>
+          <select x-model="ruleDrawer.rule.categoryId">
+            <option value="">Категория</option>
+            <template x-for="cat in categories" :key="cat.id">
+              <option :value="cat.id" x-text="cat.name"></option>
+            </template>
+          </select>
+        </p>
+        <p>
+          <span>с приоритетом</span>
+          <input type="number" x-model="ruleDrawer.rule.priority" placeholder="Приоритет">
+        </p>
+        <label class="checkbox-label">
+          <input type="checkbox" x-model="ruleDrawer.rule.isActive"> Активно
+        </label>
+        <div class="drawer-actions">
+          <button @click="saveCategoryRule()" :disabled="!ruleDrawer.rule.categoryId">Сохранить</button>
+          <button class="outline" @click="closeRuleDrawer()">Отмена</button>
         </div>
       </div>
-    </aside>
+    </div>
+  </aside>
 
-    <!-- Account tooltip -->
-    <div class="heatmap-tooltip" x-ref="accTooltip"></div>
+  <!-- Account tooltip -->
+  <div class="heatmap-tooltip" x-ref="accTooltip"></div>
 
-    <!-- Drill-down Drawer -->
-    <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()" aria-hidden="true"></div>
-    <aside class="drawer" :class="{ 'open': drawer.open }" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1" @keydown.escape.window="closeDrawer()" x-trap="drawer.open">
-      <header class="drawer-header">
-        <h4 id="drawer-title" x-text="drawer.title"></h4>
-        <button class="secondary outline square small" @click="closeDrawer()" aria-label="Закрыть">×</button>
-      </header>
-      <div class="drawer-content">
-        <div class="drawer-toolbar">
-          <input type="text" x-model.debounce.300ms="drawerSearch" placeholder="Поиск по описанию..." class="drawer-search">
-        </div>
-        <figure class="data-table-wrap">
-          <div class="data-table-scroll">
+  <!-- Drill-down Drawer -->
+  <div class="drawer-backdrop" :class="{ 'open': drawer.open }" @click="closeDrawer()" aria-hidden="true"></div>
+  <aside class="drawer" :class="{ 'open': drawer.open }" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1" @keydown.escape.window="closeDrawer()" x-trap="drawer.open">
+    <header class="drawer-header">
+      <h4 id="drawer-title" x-text="drawer.title"></h4>
+      <button class="secondary outline square small" @click="closeDrawer()" aria-label="Закрыть">×</button>
+    </header>
+    <div class="drawer-content">
+      <div class="drawer-toolbar">
+        <input type="text" x-model.debounce.300ms="drawerSearch" placeholder="Поиск по описанию..." class="drawer-search">
+      </div>
+      <figure class="data-table-wrap">
+        <div class="data-table-scroll">
           <table role="grid" class="data-table drawer-table">
             <thead>
               <tr>
@@ -666,13 +664,13 @@
               </template>
             </tbody>
           </table>
-          </div>
-        </figure>
-        <template x-if="sortedDrawerTransactions.length === 0">
-          <p class="empty-state">Нет транзакций</p>
-        </template>
-      </div>
-    </aside>
+        </div>
+      </figure>
+      <template x-if="sortedDrawerTransactions.length === 0">
+        <p class="empty-state">Нет транзакций</p>
+      </template>
+    </div>
+  </aside>
   </div>
 </body>
 

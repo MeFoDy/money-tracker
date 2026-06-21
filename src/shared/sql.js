@@ -10,9 +10,19 @@ export function buildWhere({ from, to, accountId, type, categoryId, categoryIds,
   if (accountId) { conditions.push(`${a}account_id = ?`); params.push(accountId); }
   if (type) { conditions.push(`${a}tx_type = ?`); params.push(type); }
   if (categoryIds && categoryIds.length > 0) {
-    const placeholders = categoryIds.map(() => '?').join(',');
-    conditions.push(`${a}category_id IN (${placeholders})`);
-    params.push(...categoryIds);
+    const hasNull = categoryIds.includes(null);
+    const realIds = categoryIds.filter(id => id !== null);
+    const parts = [];
+    if (realIds.length > 0) {
+      parts.push(`${a}category_id IN (${realIds.map(() => '?').join(',')})`);
+      params.push(...realIds);
+    }
+    if (hasNull) {
+      parts.push(`${a}category_id IS NULL`);
+    }
+    if (parts.length > 0) {
+      conditions.push(parts.length === 1 ? parts[0] : `(${parts.join(' OR ')})`);
+    }
   } else if (categoryId !== undefined) {
     if (categoryId === null) conditions.push(`${a}category_id IS NULL`);
     else { conditions.push(`${a}category_id = ?`); params.push(categoryId); }

@@ -17,8 +17,8 @@ export function getUncategorizedCount() {
   return row.count;
 }
 
-export function getPeriodSummary({ from, to, accountId, categoryId, search } = {}) {
-  const { where, params } = buildWhere({ from, to, accountId, categoryId, search });
+export function getPeriodSummary({ from, to, accountId, categoryIds, search } = {}) {
+  const { where, params } = buildWhere({ from, to, accountId, categoryIds, search });
   const sql = `
     SELECT
       SUM(CASE WHEN t.tx_type = 'income' THEN COALESCE(t.amount_byn, t.amount) ELSE 0 END) AS income,

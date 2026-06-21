@@ -125,7 +125,7 @@ describe('Analytics', () => {
     const all = getPeriodSummary();
     assert.ok((all.income || 0) > 0 || (all.expense || 0) > 0, 'there should be some transactions');
 
-    const uncategorized = getPeriodSummary({ categoryId: null });
+    const uncategorized = getPeriodSummary({ categoryIds: [null] });
     assert.equal(typeof uncategorized.income, 'number');
     assert.equal(typeof uncategorized.expense, 'number');
 

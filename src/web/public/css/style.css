@@ -685,6 +685,15 @@ button.small {
   width: 100%;
 }
 
+.filter-row-transactions {
+  grid-template-columns: repeat(6, 1fr);
+  margin-bottom: 1.25rem;
+}
+
+.filter-row-transactions input {
+  margin-bottom: 0;
+}
+
 .filter-row-dates input[type="date"] {
   margin-bottom: 0;
   flex: 0 1 150px;
@@ -697,15 +706,6 @@ button.small {
   justify-content: flex-start;
   gap: 1.5rem;
   width: max-content;
-}
-
-.filter-row-others select,
-.filter-row-others button {
-  margin-bottom: 0;
-}
-
-.filter-row-others select {
-  flex: 1 1 140px;
 }
 
 /* ---------- Multi-select Dropdown ---------- */

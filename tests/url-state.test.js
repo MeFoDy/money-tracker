@@ -1,6 +1,6 @@
 import { describe, test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeDateRangeToUrl, writeAccountIdToUrl, replaceDateRangeInUrl, replaceAccountIdInUrl, pushDateRangeToUrl, pushAccountIdToUrl, buildPageUrl } from '../src/web/public/js/url-state.js';
+import { writeDateRangeToUrl, writeAccountIdToUrl, writeCategoryIdsToUrl, replaceDateRangeInUrl, replaceAccountIdInUrl, replaceCategoryIdsInUrl, pushDateRangeToUrl, pushAccountIdToUrl, pushCategoryIdsToUrl, buildPageUrl } from '../src/web/public/js/url-state.js';
 
 describe('url-state', () => {
   let originalLocation;
@@ -82,17 +82,52 @@ describe('url-state', () => {
   });
 
   test('buildPageUrl preserves date range and account filter and switches page', () => {
-    const url = buildPageUrl('transactions', { from: '2026-01-01', to: '2026-03-31', accountId: '42' });
+    const url = buildPageUrl('transactions', { from: '2026-01-01', to: '2026-03-31', accountId: '42', categoryIds: [] });
     assert.equal(url.searchParams.get('page'), 'transactions');
     assert.equal(url.searchParams.get('from'), '2026-01-01');
     assert.equal(url.searchParams.get('to'), '2026-03-31');
     assert.equal(url.searchParams.get('accountId'), '42');
     assert.equal(url.searchParams.has('period'), false);
+    assert.equal(url.searchParams.has('categoryIds'), false);
   });
 
   test('buildPageUrl clears missing accountId', () => {
     globalThis.location = new URL('http://localhost/?page=dashboard&accountId=42');
-    const url = buildPageUrl('transactions', { from: '2026-01-01', to: '2026-03-31', accountId: '' });
+    const url = buildPageUrl('transactions', { from: '2026-01-01', to: '2026-03-31', accountId: '', categoryIds: [] });
     assert.equal(url.searchParams.has('accountId'), false);
+  });
+
+  test('writeCategoryIdsToUrl sets categoryIds', () => {
+    const url = new URL('http://localhost/');
+    writeCategoryIdsToUrl(url, ['1', '2', 'null']);
+    assert.equal(url.searchParams.get('categoryIds'), '1,2,null');
+  });
+
+  test('writeCategoryIdsToUrl deletes empty values', () => {
+    const url = new URL('http://localhost/?categoryIds=1,2');
+    writeCategoryIdsToUrl(url, []);
+    assert.equal(url.searchParams.has('categoryIds'), false);
+  });
+
+  test('pushCategoryIdsToUrl creates a history entry with categoryIds', () => {
+    pushCategoryIdsToUrl(['1', 'null']);
+    assert.equal(pushed.length, 1);
+    const pushedUrl = new URL(pushed[0]);
+    assert.equal(pushedUrl.searchParams.get('categoryIds'), '1,null');
+    assert.equal(pushedUrl.searchParams.get('page'), 'dashboard');
+  });
+
+  test('replaceCategoryIdsInUrl replaces current history entry', () => {
+    replaceCategoryIdsInUrl(['3']);
+    assert.equal(replaced.length, 1);
+    const replacedUrl = new URL(replaced[0]);
+    assert.equal(replacedUrl.searchParams.get('categoryIds'), '3');
+  });
+
+  test('buildPageUrl preserves categoryIds and switches page', () => {
+    const url = buildPageUrl('transactions', { from: '2026-01-01', to: '2026-03-31', accountId: '42', categoryIds: ['1', 'null'] });
+    assert.equal(url.searchParams.get('page'), 'transactions');
+    assert.equal(url.searchParams.get('categoryIds'), '1,null');
+    assert.equal(url.searchParams.get('accountId'), '42');
   });
 });

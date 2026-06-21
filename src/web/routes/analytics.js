@@ -15,8 +15,8 @@ import {
 
 function parseCategoryIds(queryValue) {
   if (!queryValue) return undefined;
-  if (Array.isArray(queryValue)) return queryValue.map(Number).filter(Boolean);
-  return String(queryValue).split(',').map(Number).filter(Boolean);
+  const items = Array.isArray(queryValue) ? queryValue : String(queryValue).split(',');
+  return items.map(v => (v === 'null' ? null : Number(v))).filter(v => v === null || Number.isFinite(v));
 }
 
 export default async function analyticsRoutes(app) {
@@ -31,9 +31,8 @@ export default async function analyticsRoutes(app) {
   });
 
   app.get('/period-summary', async (request) => {
-    const { from, to, accountId, categoryId, search } = request.query;
-    const catId = categoryId === 'null' ? null : (categoryId === undefined ? undefined : Number(categoryId));
-    return getPeriodSummary({ from, to, accountId, categoryId: catId, search });
+    const { from, to, accountId, search } = request.query;
+    return getPeriodSummary({ from, to, accountId, categoryIds: parseCategoryIds(request.query.categoryIds), search });
   });
 
   app.get('/spending-by-category', async (request) => {

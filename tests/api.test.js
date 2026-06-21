@@ -5,6 +5,7 @@ import { setupTestDb, teardownTestDb } from './_helper.js';
 import { createCategory } from '../src/domain/categories/index.js';
 import { createAccount } from '../src/domain/accounts/index.js';
 import { createCategoryRule } from '../src/domain/category-rules/index.js';
+import { createTransaction } from '../src/domain/transactions/index.js';
 import fs from 'node:fs';
 
 const STATEMENT_PATH = './reports/Vpsk_71487962.csv';
@@ -243,6 +244,61 @@ describe('Upload Preview & Confirm API', () => {
       const confirmBody = JSON.parse(confirmRes.payload);
       assert.ok(confirmBody.imported > 0);
       assert.equal(confirmBody.duplicatesSkipped, 0);
+    } finally {
+      await app.close();
+      teardownTestDb(ctx);
+    }
+  });
+
+  test('transactions endpoint filters by categoryIds including null', async () => {
+    const ctx = setupTestDb();
+    const app = await buildApp();
+    try {
+      const cat = createCategory({ name: 'Food', color: '#22c55e' });
+      const acc = createAccount({ accountNumber: '1234', name: 'TestAcc' });
+      createTransaction({ accountId: acc.id, categoryId: cat.id, txDate: '2026-01-15', description: 'Lunch', amount: -10, amountByn: -10, currency: 'BYN', txType: 'expense', txHash: 'hash-1' });
+      createTransaction({ accountId: acc.id, categoryId: null, txDate: '2026-01-16', description: 'Coffee', amount: -5, amountByn: -5, currency: 'BYN', txType: 'expense', txHash: 'hash-2' });
+
+      const catRes = await app.inject({ method: 'GET', url: `/api/transactions?from=2026-01-01&to=2026-01-31&categoryIds=${cat.id}` });
+      assert.equal(catRes.statusCode, 200);
+      const catBody = JSON.parse(catRes.payload);
+      assert.equal(catBody.rows.length, 1);
+      assert.equal(catBody.rows[0].description, 'Lunch');
+
+      const nullRes = await app.inject({ method: 'GET', url: '/api/transactions?from=2026-01-01&to=2026-01-31&categoryIds=null' });
+      assert.equal(nullRes.statusCode, 200);
+      const nullBody = JSON.parse(nullRes.payload);
+      assert.equal(nullBody.rows.length, 1);
+      assert.equal(nullBody.rows[0].description, 'Coffee');
+
+      const bothRes = await app.inject({ method: 'GET', url: `/api/transactions?from=2026-01-01&to=2026-01-31&categoryIds=null,${cat.id}` });
+      assert.equal(bothRes.statusCode, 200);
+      const bothBody = JSON.parse(bothRes.payload);
+      assert.equal(bothBody.rows.length, 2);
+    } finally {
+      await app.close();
+      teardownTestDb(ctx);
+    }
+  });
+
+  test('period-summary endpoint filters by categoryIds', async () => {
+    const ctx = setupTestDb();
+    const app = await buildApp();
+    try {
+      const cat = createCategory({ name: 'Food', color: '#22c55e' });
+      const acc = createAccount({ accountNumber: '1234', name: 'TestAcc' });
+      createTransaction({ accountId: acc.id, categoryId: cat.id, txDate: '2026-01-15', description: 'Lunch', amount: -10, amountByn: -10, currency: 'BYN', txType: 'expense', txHash: 'hash-1' });
+      createTransaction({ accountId: acc.id, categoryId: null, txDate: '2026-01-16', description: 'Coffee', amount: -5, amountByn: -5, currency: 'BYN', txType: 'expense', txHash: 'hash-2' });
+
+      const catRes = await app.inject({ method: 'GET', url: `/api/analytics/period-summary?from=2026-01-01&to=2026-01-31&categoryIds=${cat.id}` });
+      assert.equal(catRes.statusCode, 200);
+      const catBody = JSON.parse(catRes.payload);
+      assert.equal(catBody.expense, 10);
+
+      const nullRes = await app.inject({ method: 'GET', url: '/api/analytics/period-summary?from=2026-01-01&to=2026-01-31&categoryIds=null' });
+      assert.equal(nullRes.statusCode, 200);
+      const nullBody = JSON.parse(nullRes.payload);
+      assert.equal(nullBody.expense, 5);
     } finally {
       await app.close();
       teardownTestDb(ctx);

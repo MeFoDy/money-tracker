@@ -1,11 +1,5 @@
 import { getDb } from '../../config/database.js';
-
-/* ---------- Filtering helper ---------- */
-function nextDay(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const next = new Date(y, m - 1, d + 1);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
-}
+import { buildWhere } from '../../shared/sql.js';
 
 /* ---------- Transactions ---------- */
 export function createTransaction({ accountId, categoryId, txDate, description, amount, amountByn, currency, txType, txHash, bankCategory, isPending = 0 }) {
@@ -47,27 +41,14 @@ export function updatePendingToCompleted(txHash, { categoryId, amount, amountByn
 }
 
 /* ---------- Filtering ---------- */
-export function getTransactions({ from, to, accountId, categoryId, search, isPending, limit = 50, offset = 0, orderBy = 'tx_date DESC' } = {}) {
-  const conditions = [];
-  const params = [];
-
-  if (from) { conditions.push('tx_date >= ?'); params.push(from.slice(0, 10)); }
-  if (to) { conditions.push('tx_date < ?'); params.push(nextDay(to.slice(0, 10))); }
-  if (accountId) { conditions.push('account_id = ?'); params.push(accountId); }
-  if (categoryId !== undefined) {
-    if (categoryId === null) conditions.push('category_id IS NULL');
-    else { conditions.push('category_id = ?'); params.push(categoryId); }
-  }
-  if (isPending !== undefined) { conditions.push('is_pending = ?'); params.push(isPending ? 1 : 0); }
-  if (search) { conditions.push('description LIKE ?'); params.push(`%${search}%`); }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+export function getTransactions({ from, to, accountId, categoryIds, search, isPending, limit = 50, offset = 0, orderBy = 'tx_date DESC' } = {}) {
+  const { where, params } = buildWhere({ from, to, accountId, categoryIds, search, isPending, noAlias: true });
   const countStmt = getDb().prepare(`SELECT COUNT(*) as total FROM transactions ${where}`);
   const dataStmt = getDb().prepare(`SELECT * FROM transactions ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`);
 
-  params.push(limit, offset);
-  const rows = dataStmt.all(...params);
-  const total = countStmt.get(...params.slice(0, -2)).total;
+  const queryParams = [...params, limit, offset];
+  const rows = dataStmt.all(...queryParams);
+  const total = countStmt.get(...params).total;
   return { rows, total, limit, offset };
 }
 

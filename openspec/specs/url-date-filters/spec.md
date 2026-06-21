@@ -1,6 +1,6 @@
 ## Purpose
 
-Define how date filters (`from`/`to`) and the account filter (`accountId`) are persisted in the URL, shared between Dashboard and Transactions tabs, and respected by drill-down drawers.
+Define how date filters (`from`/`to`), account filter (`accountId`), and category filter (`categoryIds`) are persisted in the URL, shared between Dashboard and Transactions tabs, and respected by drill-down drawers.
 
 ## Requirements
 
@@ -46,21 +46,23 @@ The system SHALL keep `from` and `to` identical for Dashboard and Transactions t
 - **AND** the transaction list loads for that range
 
 ### Requirement: Reset restores defaults and updates URL
-The system SHALL provide a reset control that restores the default 3-month date range, clears the active account filter, and updates the URL accordingly.
+The system SHALL provide a reset control that restores the default 3-month date range, clears the active account filter, clears the active category filter, and updates the URL accordingly.
 
 #### Scenario: User resets Dashboard filters
-- **GIVEN** the Dashboard has a custom date range and/or `accountId` in the URL
+- **GIVEN** the Dashboard has a custom date range, `accountId`, and/or `categoryIds` in the URL
 - **WHEN** the user clicks "Сбросить"
 - **THEN** the date inputs revert to the default 3-month window
 - **AND** the account select reverts to "Все счета"
-- **AND** the URL parameters `from`, `to`, and `accountId` are updated accordingly
+- **AND** the category multi-select reverts to "Все категории"
+- **AND** the URL parameters `from`, `to`, `accountId`, and `categoryIds` are updated accordingly
 
 #### Scenario: User resets Transactions filters
-- **GIVEN** the Transactions tab has a custom date range and/or `accountId` in the URL
+- **GIVEN** the Transactions tab has a custom date range, `accountId`, and/or `categoryIds` in the URL
 - **WHEN** the user clicks "Сбросить"
 - **THEN** the date inputs revert to the default 3-month window
 - **AND** the account select reverts to "Все счета"
-- **AND** the URL parameters `from`, `to`, and `accountId` are updated accordingly
+- **AND** the category multi-select reverts to "Все категории"
+- **AND** the URL parameters `from`, `to`, `accountId`, and `categoryIds` are updated accordingly
 
 ### Requirement: Drill-down drawers use the active date range
 The system SHALL use the currently active `from`/`to` range when opening any dashboard drill-down drawer (period, category, comparison, heatmap day).

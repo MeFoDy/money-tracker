@@ -1,19 +1,19 @@
 import { getTransactions, bulkUpdateCategory, deleteTransaction } from '../../domain/transactions/index.js';
 
-function getCategoryIdParam(categoryId) {
-  if (categoryId === 'null') return null;
-  if (categoryId === undefined) return undefined;
-  return Number(categoryId);
+function parseCategoryIds(queryValue) {
+  if (!queryValue) return undefined;
+  if (Array.isArray(queryValue)) return queryValue.map(v => (v === 'null' ? null : Number(v))).filter(v => v === null || Number.isFinite(v));
+  return String(queryValue).split(',').map(v => (v === 'null' ? null : Number(v))).filter(v => v === null || Number.isFinite(v));
 }
 
 export default async function transactionRoutes(app) {
   app.get('/', async (request) => {
-    const { from, to, accountId, categoryId, search, limit, offset, orderBy } = request.query;
+    const { from, to, accountId, categoryIds, search, limit, offset, orderBy } = request.query;
     return getTransactions({
       from,
       to,
       accountId: accountId ? Number(accountId) : undefined,
-      categoryId: getCategoryIdParam(categoryId),
+      categoryIds: parseCategoryIds(categoryIds),
       search,
       limit: limit ? Number(limit) : 50,
       offset: offset ? Number(offset) : 0,
